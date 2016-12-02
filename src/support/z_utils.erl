@@ -124,26 +124,27 @@ wildcard(Wildcard, DirName) ->
 filter_dot_files(Names) ->
     [NoDotName || NoDotName <- Names, no_dot_file(NoDotName)].
 
-    no_dot_file(Name) ->
-        no_dot_file1(filename:split(Name)).
+no_dot_file(Name) ->
+    no_dot_file1(filename:split(Name)).
 
-    no_dot_file1([]) -> true;
-    no_dot_file1([[$.|_] | _]) -> false;
-    no_dot_file1([_|Rest]) -> no_dot_file1(Rest).
+no_dot_file1([]) -> true;
+no_dot_file1([[$. | _] | _]) -> false;
+no_dot_file1([_ | Rest]) -> no_dot_file1(Rest).
 
 
 %% @doc Return the current tick count
 now() ->
-    {M,S,_M} = os:timestamp(),
-    M*1000000 + S.
+    {M, S, _M} = os:timestamp(),
+    M * 1000000 + S.
 
 now_msec() ->
-    {M,S,Micro} = os:timestamp(),
-    M*1000000000 + S*1000 + Micro div 1000.
+    {M, S, Micro} = os:timestamp(),
+    M * 1000000000 + S * 1000 + Micro div 1000.
 
 
 %% @doc Return the current universal time in seconds
-get_seconds() -> calendar:datetime_to_gregorian_seconds(calendar:universal_time()).
+get_seconds() ->
+    calendar:datetime_to_gregorian_seconds(calendar:universal_time()).
 
 
 %% @doc Multinode is_process_alive check
@@ -161,9 +162,9 @@ is_process_alive(Pid) ->
 
 %% @doc Safe erase of process dict, keeps some 'magical' proc_lib vars
 erase_process_dict() ->
-    Values = [ {K, erlang:get(K)} || K <- ['$initial_call', '$ancestors', '$erl_eval_max_line'] ],
+    Values = [{K, erlang:get(K)} || K <- ['$initial_call', '$ancestors', '$erl_eval_max_line']],
     erlang:erase(),
-    [ erlang:put(K,V) || {K,V} <- Values, V =/= undefined ],
+    [erlang:put(K, V) || {K, V} <- Values, V =/= undefined],
     ok.
 
 
@@ -174,8 +175,8 @@ encode_value(Value, Context) ->
     Salt = binary_to_list(z_ids:id()), %% convert to list for backwards compatibility
     Secret = z_ids:sign_key(Context),
     base64:encode(
-      term_to_binary({Value, Salt, crypto:hmac(sha, Secret, term_to_binary([Value, Salt]))})
-     ).
+        term_to_binary({Value, Salt, crypto:hmac(sha, Secret, term_to_binary([Value, Salt]))})
+    ).
 
 %% 23 usec on core2duo 2GHz
 decode_value(Data, Context) ->
@@ -198,12 +199,12 @@ decode_value_expire(Data, Context) ->
 %%% CHECKSUM %%%
 checksum(Data, Context) ->
     Sign = z_ids:sign_key_simple(Context),
-    z_utils:hex_encode(erlang:md5([Sign,Data])).
+    z_utils:hex_encode(erlang:md5([Sign, Data])).
 
 checksum_assert(Data, Checksum, Context) ->
     Sign = z_ids:sign_key_simple(Context),
     try
-        assert(list_to_binary(z_utils:hex_decode(Checksum)) == erlang:md5([Sign,Data]), checksum_invalid)
+        assert(list_to_binary(z_utils:hex_decode(Checksum)) == erlang:md5([Sign, Data]), checksum_invalid)
     catch
         error:badarg ->
             erlang:error(checksum_invalid);
@@ -217,7 +218,7 @@ checksum_assert(Data, Checksum, Context) ->
 pickle(Data, Context) ->
     BData = erlang:term_to_binary(Data),
     Nonce = z_ids:rand_bytes(4),
-    Sign  = z_ids:sign_key(Context),
+    Sign = z_ids:sign_key(Context),
     SData = <<BData/binary, Nonce:4/binary>>,
     <<Mac:16/binary>> = crypto:hmac(md5, Sign, SData),
     base64url:encode(<<Mac:16/binary, Nonce:4/binary, BData/binary>>).
@@ -225,7 +226,7 @@ pickle(Data, Context) ->
 depickle(Data, Context) ->
     try
         <<Mac:16/binary, Nonce:4/binary, BData/binary>> = base64url:decode(Data),
-        Sign  = z_ids:sign_key(Context),
+        Sign = z_ids:sign_key(Context),
         SData = <<BData/binary, Nonce:4/binary>>,
         <<Mac:16/binary>> = crypto:hmac(md5, Sign, SData),
         erlang:binary_to_term(BData)
@@ -251,19 +252,19 @@ os_filename(A) when is_list(A) ->
 
 os_filename([], Acc) ->
     filename:nativename([$'] ++ lists:reverse(Acc) ++ [$']);
-os_filename([$\\|Rest], Acc) ->
+os_filename([$\\ | Rest], Acc) ->
     os_filename_bs(Rest, Acc);
-os_filename([$'|Rest], Acc) ->
+os_filename([$' | Rest], Acc) ->
     os_filename(Rest, [$', $\\ | Acc]);
-os_filename([C|Rest], Acc) ->
-    os_filename(Rest, [C|Acc]).
+os_filename([C | Rest], Acc) ->
+    os_filename(Rest, [C | Acc]).
 
-os_filename_bs([$\\|Rest], Acc) ->
-    os_filename(Rest, [$\\,$\\|Acc]);
-os_filename_bs([$'|Rest], Acc) ->
-    os_filename(Rest, [$',$\\,$\\,$\\|Acc]);
-os_filename_bs([C|Rest], Acc) ->
-    os_filename(Rest, [C,$\\|Acc]).
+os_filename_bs([$\\ | Rest], Acc) ->
+    os_filename(Rest, [$\\, $\\ | Acc]);
+os_filename_bs([$' | Rest], Acc) ->
+    os_filename(Rest, [$', $\\, $\\, $\\ | Acc]);
+os_filename_bs([C | Rest], Acc) ->
+    os_filename(Rest, [C, $\\ | Acc]).
 
 
 %% @spec os_escape(String) -> String
@@ -278,87 +279,105 @@ os_escape(A) when is_list(A) ->
 
 os_escape(_, [], Acc) ->
     lists:reverse(Acc);
-os_escape(unix, [C|Rest], Acc) when
-      (C >= $A andalso C =< $Z)
-      orelse (C >= $a andalso C =< $z)
-      orelse (C >= $0 andalso C =< $9)
-      orelse C == $_
-      orelse C == $.
-      orelse C == $-
-      orelse C == $+
-      orelse C == $/
-      ->
-    os_escape(unix, Rest, [C|Acc]);
-os_escape(unix, [C|Rest], Acc) when
-      C >= 32
-      orelse  C == $\r
-      orelse  C == $\n
-      orelse  C == $\t
-      ->
-    os_escape(unix, Rest, [C,$\\|Acc]);
+os_escape(unix, [C | Rest], Acc) when
+    (C >= $A andalso C =< $Z)
+        orelse (C >= $a andalso C =< $z)
+        orelse (C >= $0 andalso C =< $9)
+        orelse C == $_
+        orelse C == $.
+        orelse C == $-
+        orelse C == $+
+        orelse C == $/
+    ->
+    os_escape(unix, Rest, [C | Acc]);
+os_escape(unix, [C | Rest], Acc) when
+    C >= 32
+        orelse C == $\r
+        orelse C == $\n
+        orelse C == $\t
+    ->
+    os_escape(unix, Rest, [C, $\\ | Acc]);
 
-%% Win32 escaping, see: http://www.microsoft.com/resources/documentation/windows/xp/all/proddocs/en-us/ntcmds_shelloverview.mspx
-os_escape(win32, [C|Rest], Acc) when
-      C == $&
-      orelse C == $|
-      orelse C == $;
-      orelse C == $,
-      orelse C == $%
-      orelse C == $(
-      orelse C == $)
-      orelse C == $"
-      orelse C == $'
-      orelse C == $=
-      orelse C == $^
-      orelse C == 32
-      ->
-    os_escape(win32, Rest, [C,$^|Acc]);
-os_escape(win32, [C|Rest], Acc) ->
-    os_escape(win32, Rest, [C|Acc]).
+%% Win32 escaping, see:
+%% http://www.microsoft.com/resources/documentation/windows/xp/all/proddocs/en-us/ntcmds_shelloverview.mspx
+os_escape(win32, [C | Rest], Acc) when
+    C == $&
+        orelse C == $|
+        orelse C == $;
+        orelse C == $,
+        orelse C == $%
+        orelse C == $(
+        orelse C == $)
+        orelse C == $"
+        orelse C == $'
+        orelse C == $=
+        orelse C == $^
+        orelse C == 32
+    ->
+    os_escape(win32, Rest, [C, $^ | Acc]);
+os_escape(win32, [C | Rest], Acc) ->
+    os_escape(win32, Rest, [C | Acc]).
 
 
 %%% ESCAPE JAVASCRIPT %%%
 
 %% @doc Javascript escape, see also: http://code.google.com/p/doctype/wiki/ArticleXSSInJavaScript
 js_escape({trans, []}, _OptContext) -> [];
-js_escape({trans, _} = Tr, OptContext) -> js_escape(z_trans:lookup_fallback(Tr, OptContext), OptContext);
+js_escape({trans, _} = Tr, OptContext) ->
+    js_escape(z_trans:lookup_fallback(Tr, OptContext), OptContext);
 js_escape({trust, Value}, _Context) -> Value;
 js_escape(undefined, _OptContext) -> [];
 js_escape([], _OptContext) -> [];
 js_escape(<<>>, _OptContext) -> [];
 js_escape(Value, _OptContext) when is_integer(Value) -> integer_to_list(Value);
-js_escape(Value, OptContext) when is_atom(Value) ->  js_escape1(atom_to_list(Value), [], OptContext);
-js_escape(Value, OptContext) when is_binary(Value) -> js_escape1(binary_to_list(Value), [], OptContext);
+js_escape(Value, OptContext) when is_atom(Value) ->
+    js_escape1(atom_to_list(Value), [], OptContext);
+js_escape(Value, OptContext) when is_binary(Value) ->
+    js_escape1(binary_to_list(Value), [], OptContext);
 js_escape(Value, OptContext) -> js_escape1(Value, [], OptContext).
 
 js_escape(V) ->
     js_escape(V, undefined).
 
 js_escape1([], Acc, _OptContext) -> lists:reverse(Acc);
-js_escape1([$\\|T], Acc, OptContext) -> js_escape1(T, [$\\,$\\|Acc], OptContext);
-js_escape1([$\n|T], Acc, OptContext) -> js_escape1(T, [$n,$\\|Acc], OptContext);
-js_escape1([$\r|T], Acc, OptContext) -> js_escape1(T, [$r,$\\|Acc], OptContext);
-js_escape1([$\t|T], Acc, OptContext) -> js_escape1(T, [$t,$\\|Acc], OptContext);
-js_escape1([$'|T], Acc, OptContext) -> js_escape1(T, [$7,$2,$x,$\\|Acc], OptContext);
-js_escape1([$"|T], Acc, OptContext) -> js_escape1(T, [$2,$2,$x,$\\|Acc], OptContext);
-js_escape1([$<|T], Acc, OptContext) -> js_escape1(T, [$c,$3,$x,$\\|Acc], OptContext);
-js_escape1([$>|T], Acc, OptContext) -> js_escape1(T, [$e,$3,$x,$\\|Acc], OptContext);
-js_escape1([$=|T], Acc, OptContext) -> js_escape1(T, [$d,$3,$x,$\\|Acc], OptContext);
-js_escape1([$&|T], Acc, OptContext) -> js_escape1(T, [$6,$2,$x,$\\|Acc], OptContext);
+js_escape1([$\\ | T], Acc, OptContext) ->
+    js_escape1(T, [$\\, $\\ | Acc], OptContext);
+js_escape1([$\n | T], Acc, OptContext) ->
+    js_escape1(T, [$n, $\\ | Acc], OptContext);
+js_escape1([$\r | T], Acc, OptContext) ->
+    js_escape1(T, [$r, $\\ | Acc], OptContext);
+js_escape1([$\t | T], Acc, OptContext) ->
+    js_escape1(T, [$t, $\\ | Acc], OptContext);
+js_escape1([$' | T], Acc, OptContext) ->
+    js_escape1(T, [$7, $2, $x, $\\ | Acc], OptContext);
+js_escape1([$" | T], Acc, OptContext) ->
+    js_escape1(T, [$2, $2, $x, $\\ | Acc], OptContext);
+js_escape1([$< | T], Acc, OptContext) ->
+    js_escape1(T, [$c, $3, $x, $\\ | Acc], OptContext);
+js_escape1([$> | T], Acc, OptContext) ->
+    js_escape1(T, [$e, $3, $x, $\\ | Acc], OptContext);
+js_escape1([$= | T], Acc, OptContext) ->
+    js_escape1(T, [$d, $3, $x, $\\ | Acc], OptContext);
+js_escape1([$& | T], Acc, OptContext) ->
+    js_escape1(T, [$6, $2, $x, $\\ | Acc], OptContext);
 %% js_escape1([16#85,C|T], Acc) when C >= 16#80 -> js_escape1(T, [C,16#85|Acc]);
 %% js_escape1([16#85|T], Acc) -> js_escape1(T, [$5,$8,$0,$0,$u,$\\|Acc]);
-js_escape1([16#2028|T],Acc, OptContext)-> js_escape1(T, [$8,$2,$0,$2,$u,$\\|Acc], OptContext);
-js_escape1([16#2029|T],Acc, OptContext)-> js_escape1(T, [$9,$2,$0,$2,$u,$\\|Acc], OptContext);
-js_escape1([16#e2,16#80,16#a8|T],Acc, OptContext)-> js_escape1(T, [$8,$2,$0,$2,$u,$\\|Acc], OptContext);
-js_escape1([16#e2,16#80,16#a9|T],Acc, OptContext)-> js_escape1(T, [$9,$2,$0,$2,$u,$\\|Acc], OptContext);
-js_escape1([H|T], Acc, OptContext) when is_integer(H) ->
-    js_escape1(T, [H|Acc], OptContext);
-js_escape1([H|T], Acc, OptContext) ->
+js_escape1([16#2028 | T], Acc, OptContext) ->
+    js_escape1(T, [$8, $2, $0, $2, $u, $\\ | Acc], OptContext);
+js_escape1([16#2029 | T], Acc, OptContext) ->
+    js_escape1(T, [$9, $2, $0, $2, $u, $\\ | Acc], OptContext);
+js_escape1([16#e2, 16#80, 16#a8 | T], Acc, OptContext) ->
+    js_escape1(T, [$8, $2, $0, $2, $u, $\\ | Acc], OptContext);
+js_escape1([16#e2, 16#80, 16#a9 | T], Acc, OptContext) ->
+    js_escape1(T, [$9, $2, $0, $2, $u, $\\ | Acc], OptContext);
+js_escape1([H | T], Acc, OptContext) when is_integer(H) ->
+    js_escape1(T, [H | Acc], OptContext);
+js_escape1([H | T], Acc, OptContext) ->
     H1 = js_escape(H, OptContext),
-    js_escape1(T, [H1|Acc], OptContext).
+    js_escape1(T, [H1 | Acc], OptContext).
 
 js_array(L) ->
-    [ $[, combine($,,[ js_prop_value(undefined, V, undefined) || V <- L ]), $] ].
+    [$[, combine($,, [js_prop_value(undefined, V, undefined) || V <- L]), $]].
 
 
 %% @doc Create a javascript object from a proplist
@@ -368,46 +387,48 @@ js_object([], _OptContext) -> <<"{}">>;
 js_object(L, OptContext) -> iolist_to_binary(js_object(L, [], OptContext)).
 
 js_object(L, [], Context) -> js_object1(L, [], Context);
-js_object(L, [Key|T], Context) -> js_object(proplists:delete(Key,L), T, Context).
+js_object(L, [Key | T], Context) ->
+    js_object(proplists:delete(Key, L), T, Context).
 
 
 %% recursively add all properties as object properties
 js_object1([], Acc, _OptContext) ->
-    [${, combine($,,lists:reverse(Acc)), $}];
-js_object1([{Key,Value}|T], Acc, OptContext) ->
+    [${, combine($,, lists:reverse(Acc)), $}];
+js_object1([{Key, Value} | T], Acc, OptContext) ->
     Prop = [atom_to_list(Key), $:, js_prop_value(Key, Value, OptContext)],
-    js_object1(T, [Prop|Acc], OptContext).
+    js_object1(T, [Prop | Acc], OptContext).
 
 
 js_prop_value(_, undefined, _OptContext) -> <<"null">>;
 js_prop_value(_, true, _OptContext) -> <<"true">>;
 js_prop_value(_, false, _OptContext) -> <<"false">>;
-js_prop_value(_, Atom, _OptContext) when is_atom(Atom) -> [$",js_escape(erlang:atom_to_list(Atom)), $"];
-js_prop_value(pattern, [$/|T]=List, OptContext) ->
+js_prop_value(_, Atom, _OptContext) when is_atom(Atom) ->
+    [$", js_escape(erlang:atom_to_list(Atom)), $"];
+js_prop_value(pattern, [$/ | T] = List, OptContext) ->
     %% Check for regexp
     case length(T) of
         Len when Len =< 2 ->
-            [$",js_escape(List, OptContext),$"];
+            [$", js_escape(List, OptContext), $"];
         _Len ->
             case string:rchr(T, $/) of
                 0 ->
-                    [$",js_escape(List, OptContext),$"];
+                    [$", js_escape(List, OptContext), $"];
                 N ->
-                    {_Re, [$/|Options]} = lists:split(N-1,T),
+                    {_Re, [$/ | Options]} = lists:split(N - 1, T),
                     case only_letters(Options) of
                         true -> List;
-                        false -> [$",js_escape(List, OptContext),$"]
+                        false -> [$", js_escape(List, OptContext), $"]
                     end
             end
     end;
 js_prop_value(_, Int, _OptContext) when is_integer(Int) -> integer_to_list(Int);
 js_prop_value(_, {trust, Value}, _OptContext) -> Value;
-js_prop_value(_, Value, OptContext) -> [$",js_escape(Value, OptContext),$"].
+js_prop_value(_, Value, OptContext) -> [$", js_escape(Value, OptContext), $"].
 
 
 only_letters([]) ->
     true;
-only_letters([C|T]) when (C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z) ->
+only_letters([C | T]) when (C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z) ->
     only_letters(T);
 only_letters(_) ->
     false.
@@ -423,7 +444,7 @@ only_digits(_) -> false.
 
 only_digits1([]) ->
     true;
-only_digits1([C|R]) when C >= $0 andalso C =< $9 ->
+only_digits1([C | R]) when C >= $0 andalso C =< $9 ->
     only_digits1(R);
 only_digits1(_) ->
     false.
@@ -431,11 +452,11 @@ only_digits1(_) ->
 
 is_iolist(C) when is_integer(C) andalso C >= 0 andalso C =< 255 -> true;
 is_iolist(B) when is_binary(B) -> true;
-is_iolist([H|L]) -> is_iolist(H) andalso is_iolist(L);
+is_iolist([H | L]) -> is_iolist(H) andalso is_iolist(L);
 is_iolist(_) -> false.
 
 is_proplist([]) -> true;
-is_proplist([{K,_}|R]) when is_atom(K) -> is_proplist(R);
+is_proplist([{K, _} | R]) when is_atom(K) -> is_proplist(R);
 is_proplist(_) -> false.
 
 
@@ -445,35 +466,35 @@ combine_defined(Sep, List) ->
 
 combine(_Sep, []) -> [];
 combine(_Sep, [A]) -> [A];
-combine(Sep, [H|T]) -> [H, prefix(Sep, T)].
+combine(Sep, [H | T]) -> [H, prefix(Sep, T)].
 
-prefix(Sep, List) -> prefix(Sep,List,[]).
+prefix(Sep, List) -> prefix(Sep, List, []).
 
 prefix(_Sep, [], Acc) -> lists:reverse(Acc);
-prefix(Sep, [H|T], Acc) -> prefix(Sep, T, [H,Sep|Acc]).
+prefix(Sep, [H | T], Acc) -> prefix(Sep, T, [H, Sep | Acc]).
 
 
 %%% COALESCE %%%
 coalesce([]) -> undefined;
 coalesce([H]) -> H;
-coalesce([undefined|T]) -> coalesce(T);
-coalesce([[]|T]) -> coalesce(T);
-coalesce([H|_]) -> H.
+coalesce([undefined | T]) -> coalesce(T);
+coalesce([[] | T]) -> coalesce(T);
+coalesce([H | _]) -> H.
 
 
 %% @doc Check if a value is 'empty'
 is_empty(undefined) -> true;
 is_empty([]) -> true;
 is_empty(<<>>) -> true;
-is_empty({{9999,_,_},{_,_,_}}) -> true;
+is_empty({{9999, _, _}, {_, _, _}}) -> true;
 is_empty(_) -> false.
 
 
 %% @doc Check if the parameter could represent the logical value of "true"
-is_true([$t|_T]) -> true;
-is_true([$y|_T]) -> true;
-is_true([$T|_T]) -> true;
-is_true([$Y|_T]) -> true;
+is_true([$t | _T]) -> true;
+is_true([$y | _T]) -> true;
+is_true([$T | _T]) -> true;
+is_true([$Y | _T]) -> true;
 is_true("on") -> true;
 is_true("ON") -> true;
 is_true("1") -> true;
@@ -503,17 +524,17 @@ assert(_, _) -> ok.
 
 %% @doc Replace a property in a proplist
 prop_replace(Prop, Value, List) ->
-    [{Prop,Value} | lists:keydelete(Prop,1,List)].
+    [{Prop, Value} | lists:keydelete(Prop, 1, List)].
 
 prop_delete(Prop, List) ->
     lists:keydelete(Prop, 1, List).
 
 props_merge(Ps, []) ->
     Ps;
-props_merge(Ps, [{K,_}=P|Xs]) ->
+props_merge(Ps, [{K, _} = P | Xs]) ->
     case proplists:is_defined(K, Ps) of
         true -> props_merge(Ps, Xs);
-        false -> props_merge([P|Ps], Xs)
+        false -> props_merge([P | Ps], Xs)
     end.
 
 
@@ -524,7 +545,7 @@ props_merge(Ps, [{K,_}=P|Xs]) ->
 %% @spec group_proplists(Property, [PropList]) -> PropList
 group_proplists(_Prop, []) ->
     [];
-group_proplists(Prop, [Item|Rest]) ->
+group_proplists(Prop, [Item | Rest]) ->
     PropValue = proplists:get_value(Prop, Item),
     group_proplists(Prop, PropValue, Rest, [Item], []).
 
@@ -532,13 +553,13 @@ group_proplists(_Prop, _PropValue, [], [], Result) ->
     lists:reverse(Result);
 group_proplists(Prop, PropValue, [], Acc, Result) ->
     lists:reverse(Acc),
-    group_proplists(Prop, PropValue, [], [], [{z_convert:to_atom(PropValue),Acc}|Result]);
-group_proplists(Prop, PropValue, [C|Rest], Acc, Result) ->
+    group_proplists(Prop, PropValue, [], [], [{z_convert:to_atom(PropValue), Acc} | Result]);
+group_proplists(Prop, PropValue, [C | Rest], Acc, Result) ->
     case proplists:get_value(Prop, C) of
         PropValue ->
-            group_proplists(Prop, PropValue, Rest, [C|Acc], Result);
+            group_proplists(Prop, PropValue, Rest, [C | Acc], Result);
         Other ->
-            group_proplists(Prop, Other, Rest, [C], [{z_convert:to_atom(PropValue),Acc}|Result])
+            group_proplists(Prop, Other, Rest, [C], [{z_convert:to_atom(PropValue), Acc} | Result])
     end.
 
 
@@ -552,8 +573,8 @@ index_proplist(Prop, List) ->
 
 index_proplist(_Prop, [], Acc) ->
     lists:reverse(Acc);
-index_proplist(Prop, [L|Rest], Acc) ->
-    index_proplist(Prop, Rest, [{z_convert:to_atom(proplists:get_value(Prop,L)),L}|Acc]).
+index_proplist(Prop, [L | Rest], Acc) ->
+    index_proplist(Prop, Rest, [{z_convert:to_atom(proplists:get_value(Prop, L)), L} | Acc]).
 
 
 %% @doc Scan the props of a proplist, when the prop is a list with a $. characters in it then split the prop.
@@ -562,34 +583,34 @@ nested_proplist(Props) ->
 
 nested_proplist([], Acc) ->
     lists:reverse(Acc);
-nested_proplist([{K,V}|T], Acc) when is_list(K) ->
+nested_proplist([{K, V} | T], Acc) when is_list(K) ->
     case string:tokens(K, ".") of
-        [K0] -> nested_proplist(T, [{K0,V}|Acc]);
+        [K0] -> nested_proplist(T, [{K0, V} | Acc]);
         List -> nested_proplist(T, nested_props_assign(List, V, Acc))
     end;
-nested_proplist([H|T], Acc) ->
-    nested_proplist(T, [H|Acc]).
+nested_proplist([H | T], Acc) ->
+    nested_proplist(T, [H | Acc]).
 
 nested_props_assign([K], V, Acc) ->
     case only_digits(K) of
-        true ->  set_nth(list_to_integer(K), V, Acc);
+        true -> set_nth(list_to_integer(K), V, Acc);
         false -> prop_replace(z_convert:to_atom(K), V, Acc)
     end;
-nested_props_assign([H|T], V, Acc) ->
+nested_props_assign([H | T], V, Acc) ->
     case only_digits(H) of
         true ->
             Index = list_to_integer(H),
             NewV = case get_nth(Index, Acc) of
-                       L when is_list(L) -> nested_props_assign(T, V, L);
-                       _ -> nested_props_assign(T, V, [])
-                   end,
+                L when is_list(L) -> nested_props_assign(T, V, L);
+                _ -> nested_props_assign(T, V, [])
+            end,
             set_nth(Index, NewV, Acc);
         false ->
             K = z_convert:to_atom(H),
             NewV = case proplists:get_value(K, Acc) of
-                       L when is_list(L) -> nested_props_assign(T, V, L);
-                       _ -> nested_props_assign(T, V, [])
-                   end,
+                L when is_list(L) -> nested_props_assign(T, V, L);
+                _ -> nested_props_assign(T, V, [])
+            end,
             prop_replace(K, NewV, Acc)
     end.
 
@@ -598,12 +619,12 @@ get_nth(N, L) when N >= 1 ->
 
 set_nth(N, V, L) when N >= 1 ->
     try
-        case lists:split(N-1, L) of
+        case lists:split(N - 1, L) of
             {Pre, []} -> Pre ++ [V];
-            {Pre, [_|T]} -> Pre ++ [V|T]
+            {Pre, [_ | T]} -> Pre ++ [V | T]
         end
     catch _:_ ->
-            set_nth(N, V, L ++ [undefined])
+        set_nth(N, V, L ++ [undefined])
     end.
 
 
@@ -611,8 +632,8 @@ set_nth(N, V, L) when N >= 1 ->
 -spec randomize(list()) -> list().
 randomize(List) ->
     D = lists:map(fun(A) ->
-                     {crypto:rand_uniform(1,1000000), A}
-                  end, List),
+        {crypto:rand_uniform(1, 1000000), A}
+    end, List),
     {_, D1} = lists:unzip(lists:keysort(1, D)),
     D1.
 
@@ -634,17 +655,17 @@ split_in(L, N) when N =< 1 ->
 split_in(L, N) when is_binary(L) ->
     split_in(binary_to_list(L), N);
 split_in(L, N) when is_list(L) ->
-    [ lists:reverse(SubList) || SubList <- split_in(L, [], split_in_acc0(N, [])) ].
+    [lists:reverse(SubList) || SubList <- split_in(L, [], split_in_acc0(N, []))].
 
 split_in_acc0(0, Acc) -> Acc;
-split_in_acc0(N, Acc) -> split_in_acc0(N-1, [[] | Acc]).
+split_in_acc0(N, Acc) -> split_in_acc0(N - 1, [[] | Acc]).
 
 split_in([], Acc1, Acc0) ->
     lists:reverse(Acc1) ++ Acc0;
 split_in(L, Acc1, []) ->
     split_in(L, [], lists:reverse(Acc1));
-split_in([H|T], Acc1, [HA|HT]) ->
-    split_in(T, [[H|HA]|Acc1], HT).
+split_in([H | T], Acc1, [HA | HT]) ->
+    split_in(T, [[H | HA] | Acc1], HT).
 
 
 vsplit_in(L, N) when N =< 1 ->
@@ -654,53 +675,54 @@ vsplit_in(L, N) when is_binary(L) ->
 vsplit_in(L, N) ->
     Len = length(L),
     RunLength = case Len rem N of
-                    0 -> Len div N;
-                    _ -> Len div N + 1
-                end,
+        0 -> Len div N;
+        _ -> Len div N + 1
+    end,
     vsplit_in(N, L, RunLength, []).
 
 vsplit_in(1, L, _, Acc) ->
-		lists:reverse([L|Acc]);
+    lists:reverse([L | Acc]);
 vsplit_in(N, [], RunLength, Acc) ->
-		vsplit_in(N-1, [], RunLength, [[]|Acc]);
+    vsplit_in(N - 1, [], RunLength, [[] | Acc]);
 vsplit_in(N, L, RunLength, Acc) ->
-		{Row,Rest} = lists:split(RunLength, L),
-		vsplit_in(N-1, Rest, RunLength, [Row|Acc]).
+    {Row, Rest} = lists:split(RunLength, L),
+    vsplit_in(N - 1, Rest, RunLength, [Row | Acc]).
 
 
 %% @doc Convert a sorted list of integers to a list of range pairs {From,To}
--spec ranges([integer()]) -> [ {integer(),integer()} ].
+-spec ranges([integer()]) -> [{integer(), integer()}].
 ranges([]) ->
     [];
-ranges([N|Ns]) ->
-    ranges(Ns, [{N,N}]).
+ranges([N | Ns]) ->
+    ranges(Ns, [{N, N}]).
 
-ranges([],Acc) ->
+ranges([], Acc) ->
     lists:reverse(Acc);
-ranges([N|Ns], [{A,B}|Acc]) when B+1 =:= N ->
-    ranges(Ns, [{A,N}|Acc]);
-ranges([N|Ns], Acc) ->
-    ranges(Ns, [{N,N}|Acc]).
+ranges([N | Ns], [{A, B} | Acc]) when B + 1 =:= N ->
+    ranges(Ns, [{A, N} | Acc]);
+ranges([N | Ns], Acc) ->
+    ranges(Ns, [{N, N} | Acc]).
 
 %% @doc Group by a property or m_rsc property, keeps the input list in the same order.
 group_by([], _, _Context) ->
     [];
 group_by(L, Prop, Context) ->
-    LP = [ group_by_addprop(H, Prop, Context) || H <- L ],
+    LP = [group_by_addprop(H, Prop, Context) || H <- L],
     Dict1 = group_by_dict(LP, dict:new()),
     group_by_fetch_in_order(LP, [], Dict1, []).
 
 group_by_fetch_in_order([], _, _, Acc) ->
     lists:reverse(Acc);
-group_by_fetch_in_order([{Key,_}|T], Ks, Dict, Acc) ->
+group_by_fetch_in_order([{Key, _} | T], Ks, Dict, Acc) ->
     case lists:member(Key, Ks) of
         true -> group_by_fetch_in_order(T, Ks, Dict, Acc);
-        false -> group_by_fetch_in_order(T, [Key|Ks], Dict, [dict:fetch(Key, Dict)|Acc])
+        false ->
+            group_by_fetch_in_order(T, [Key | Ks], Dict, [dict:fetch(Key, Dict) | Acc])
     end.
 
 group_by_dict([], Dict) ->
     Dict;
-group_by_dict([{Key,V}|T], Dict) ->
+group_by_dict([{Key, V} | T], Dict) ->
     case dict:is_key(Key, Dict) of
         true -> group_by_dict(T, dict:append(Key, V, Dict));
         false -> group_by_dict(T, dict:store(Key, [V], Dict))
@@ -718,10 +740,10 @@ replace1(F, T, L) ->
     replace1(F, T, L, []).
 replace1(_F, _T, [], Acc) ->
     lists:reverse(Acc);
-replace1(F, T, [F|R], Acc) ->
-    replace1(F, T, R, [T|Acc]);
-replace1(F, T, [C|R], Acc) ->
-    replace1(F, T, R, [C|Acc]).
+replace1(F, T, [F | R], Acc) ->
+    replace1(F, T, R, [T | Acc]);
+replace1(F, T, [C | R], Acc) ->
+    replace1(F, T, R, [C | Acc]).
 
 
 %% @doc Return a list of all files in a directory, recursive depth first search for files not starting with a '.'
@@ -737,23 +759,23 @@ list_dir_recursive(Dir) ->
 
 list_dir_recursive([], _BaseDir, _Sep, Acc) ->
     Acc;
-list_dir_recursive([[$.|_]|OtherFiles], BaseDir, Sep, Acc) ->
+list_dir_recursive([[$. | _] | OtherFiles], BaseDir, Sep, Acc) ->
     list_dir_recursive(OtherFiles, BaseDir, Sep, Acc);
-list_dir_recursive([File|OtherFiles], BaseDir, Sep, Acc) ->
+list_dir_recursive([File | OtherFiles], BaseDir, Sep, Acc) ->
     Path = [BaseDir, Sep, File],
     case filelib:is_regular(Path) of
         true ->
-            list_dir_recursive(OtherFiles, BaseDir, Sep, [File|Acc]);
+            list_dir_recursive(OtherFiles, BaseDir, Sep, [File | Acc]);
         false ->
             case filelib:is_dir(Path) of
                 true ->
                     Acc1 = case file:list_dir(Path) of
-                               {ok, Files} ->
-                                   RelFiles = [ [File, Sep, F] || [H|_]=F <- Files, H /= $.],
-                                   list_dir_recursive(RelFiles, BaseDir, Sep, Acc);
-                               {error, _} ->
-                                   Acc
-                           end,
+                        {ok, Files} ->
+                            RelFiles = [[File, Sep, F] || [H | _] = F <- Files, H /= $.],
+                            list_dir_recursive(RelFiles, BaseDir, Sep, Acc);
+                        {error, _} ->
+                            Acc
+                    end,
                     list_dir_recursive(OtherFiles, BaseDir, Sep, Acc1);
                 false ->
                     list_dir_recursive(OtherFiles, BaseDir, Sep, Acc)
@@ -822,7 +844,7 @@ ensure_existing_module(ModuleName) when is_atom(ModuleName) ->
 ensure_existing_module(ModuleName) when is_binary(ModuleName) ->
     ensure_existing_module(binary_to_list(ModuleName)).
 
-                                                % Crash on a modulename that is not valid.
+% Crash on a modulename that is not valid.
 ensure_valid_modulename(Name) ->
     lists:filter(fun ensure_valid_modulechar/1, Name).
 
@@ -837,5 +859,5 @@ flush_message(Msg) ->
     receive
         Msg -> flush_message(Msg)
     after 0 ->
-            ok
+        ok
     end.

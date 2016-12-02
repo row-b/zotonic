@@ -22,7 +22,7 @@
 -export([
     comet_delegate/1,
     process_post_loop/4
-    ]).
+]).
 
 -include_lib("zotonic.hrl").
 
@@ -31,7 +31,7 @@
 
 %% Timeout for comet flush when there is data, allow for 100 msec more to gather extra data before flushing
 %% This must be higher than SIDEJOB_TIMEOUT in controlelr_postback.erl
--define(COMET_FLUSH_DATA,  100).
+-define(COMET_FLUSH_DATA, 100).
 
 
 %% @doc Collect all scripts to be pushed back to the user agent
@@ -42,8 +42,8 @@ comet_delegate(Context) ->
             TRefFinal = erlang:send_after(?COMET_FLUSH_EMPTY, self(), flush_empty),
             process_post_loop(Context, TRefFinal, undefined, MRef);
         {error, _} = Error ->
-            lager:info("[~p] Comet attach failed due to ~p", 
-                       [z_context:site(Context), Error]),
+            lager:info("[~p] Comet attach failed due to ~p",
+                [z_context:site(Context), Error]),
             {ok, [], Context}
     end.
 
@@ -60,11 +60,11 @@ process_post_loop(Context, TRefFinal, TRefData, MPageRef) ->
 
         transport ->
             TRef1 = case TRefData of
-                        undefined  ->
-                            erlang:send_after(?COMET_FLUSH_DATA, self(), flush_data);
-                        _ ->
-                            TRefData
-                    end,
+                undefined ->
+                    erlang:send_after(?COMET_FLUSH_DATA, self(), flush_data);
+                _ ->
+                    TRefData
+            end,
             ?MODULE:process_post_loop(Context, TRefFinal, TRef1, MPageRef);
 
         close ->
@@ -74,7 +74,7 @@ process_post_loop(Context, TRefFinal, TRefData, MPageRef) ->
             flush(true, Msgs, TRefFinal, TRefData, MPageRef, Context);
 
         {'DOWN', _MonitorRef, process, Pid, _Info} when Pid =:= Context#context.page_pid ->
-            Context1 = Context#context{page_pid=undefined},
+            Context1 = Context#context{page_pid = undefined},
             maybe_cancel_timer(TRefFinal),
             maybe_cancel_timer(TRefData),
             {ok, [], Context1};

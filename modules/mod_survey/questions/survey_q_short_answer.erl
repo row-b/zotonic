@@ -17,6 +17,8 @@
 
 -module(survey_q_short_answer).
 
+-behaviour(survey_question).
+
 -include("zotonic.hrl").
 
 -export([

@@ -17,6 +17,8 @@
 
 -module(survey_q_upload).
 
+-behaviour(survey_question).
+
 -export([
     answer/3,
     prep_answer_header/2,

@@ -61,9 +61,15 @@ which_watcher([]) ->
     IsScannerEnabled = z_config:get(filewatcher_scanner_enabled, false),
     case IsScannerEnabled of
         true ->
-            lager:error("FILEWATCHER: please install fswatch or inotify-tools to improve automatic loading of changed files");
+            lager:error(
+                "FILEWATCHER: please install fswatch or inotify-tools to "
+                "improve automatic loading of changed files"
+            );
         false ->
-            lager:error("FILEWATCHER: please install fswatch or inotify-tools to automatically load changed files")
+            lager:error(
+                "FILEWATCHER: please install fswatch or inotify-tools to "
+                "automatically load changed files"
+            )
     end,
     [
         {z_filewatcher_mtime,
@@ -110,6 +116,8 @@ watch_dirs() ->
         z_path:user_sites_dir(),
         z_path:user_modules_dir()
     ],
-    LinkedDirs = string:tokens(os:cmd("find " ++ z_utils:os_escape(os:getenv("ZOTONIC")) ++ " -type l"), "\n"),
+    LinkedDirs = string:tokens(
+        os:cmd("find " ++ z_utils:os_escape(os:getenv("ZOTONIC")) ++ " -type l"),
+        "\n"
+    ),
     lists:filter(fun(Dir) -> filelib:is_dir(Dir) end, ZotonicDirs ++ LinkedDirs).
-

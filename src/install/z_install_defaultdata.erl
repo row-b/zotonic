@@ -31,126 +31,148 @@
 
 install(basesite, Context) ->
     Datamodel = #datamodel{
-         resources =
-             [
-              {page_home,
-               text,
-               [{title, <<"Home">>},
-                {summary, <<"Welcome to your new site!">>},
-                {page_path, <<"/">>}]
-              }
-             ]
-        },
+        resources =
+        [
+            {page_home,
+                text,
+                [{title, <<"Home">>},
+                    {summary, <<"Welcome to your new site!">>},
+                    {page_path, <<"/">>}]
+            }
+        ]
+    },
     ?DEBUG("Installing basesite data"),
     z_datamodel:manage(?MODULE, Datamodel, Context);
 
 install(blog, Context) ->
-    Now = {{2012,12,14},{9,12,0}},
+    Now = {{2012, 12, 14}, {9, 12, 0}},
     Datamodel =
         #datamodel{
-      resources =
-      [
+            resources =
+            [
 
-       %% MENU ENTRIES
+                %% MENU ENTRIES
 
-       {page_home,
-        text,
-        [{title, <<"Home">>},
-         {summary, <<"Welcome to your blog!">>},
-         {page_path, <<"/">>}]
-       },
+                {page_home,
+                    text,
+                    [{title, <<"Home">>},
+                        {summary, <<"Welcome to your blog!">>},
+                        {page_path, <<"/">>}]
+                },
 
-       {page_about,
-        text,
-        [{title, <<"About this blog">>},
-         {summary, <<"This is your blog!! It would be wise to type some text here on what you will be writing about. Of course, this page is just a demo page and can be deleted just as well.">>}]
-       },
+                {page_about,
+                    text,
+                    [{title, <<"About this blog">>},
+                        {summary, <<"This is your blog!! It would be wise to "
+                            "type some text here on what you will be writing "
+                            "about. Of course, this page is just a demo page "
+                            "and can be deleted just as well.">>
+                        }
+                    ]
+                },
 
-       {page_contact,
-        text,
-        [{title, <<"Contact">>},
-         {summary, <<"Get in contact with us! Use the form below to send this site's administrator some feedback on how you perceive this site.">>},
-         {page_path, <<"/contact">>}]
-       },
+                {page_contact,
+                    text,
+                    [{title, <<"Contact">>},
+                        {summary, <<"Get in contact with us! Use the form below"
+                            "to send this site's administrator some feedback on"
+                            "how you perceive this site.">>
+                        },
+                        {page_path, <<"/contact">>}]
+                },
 
-       %% BLOG ENTRIES
+                %% BLOG ENTRIES
 
-       {blog_article_welcome,
-        article,
-        [{title, <<"Welcome to Zotonic!">>},
-         {publication_start, Now},
-         {summary, <<"Zotonic is the content management system for people that want a fast, extensible, flexible and complete system for dynamic web sites. It is built from the ground up with rich internet applications and web publishing in mind.">>},
-         {body, {file, datafile(blog, "welcome.html")}}
-        ]
-       },
-       {blog_article_learnmore,
-        article,
-        [{title, <<"Want to learn more?">>},
-         {publication_start, z_datetime:prev_day(Now)},
-         {summary, <<"This blog website you're looking demonstrates only a small part of what you can do with a Zotonic site. For instance, did you know that sending mass-mailings is a builtin module? That it does OAuth out of the box? That Zotonic sites are SEO optimized by default?">>},
-         {body, {file, datafile(blog, "learnmore.html")}}
-        ]
-       },
-       {blog_article_demo,
-        article,
-        [{title, <<"Zotonic's Typography">>},
-         {publication_start, z_datetime:prev_month(Now)},
-         {summary, <<"This article demonstrates the typographic features that Zotonic has. It shows creating ordered and unordered lists, blockquotes, and different methods of embedding media, even even showing an embedded video from Vimeo.com.">>},
-         {body, {file, datafile(blog, "demo.html")}}
-        ]
-       },
+                {blog_article_welcome,
+                    article,
+                    [{title, <<"Welcome to Zotonic!">>},
+                        {publication_start, Now},
+                        {summary, <<"Zotonic is the content management system "
+                            "for people that want a fast, extensible, flexible "
+                            "and complete system for dynamic web sites. It is "
+                            "built from the ground up with rich internet "
+                            "applications and web publishing in mind.">>
+                        },
+                        {body, {file, datafile(blog, "welcome.html")}}
+                    ]
+                },
+                {blog_article_learnmore,
+                    article,
+                    [{title, <<"Want to learn more?">>},
+                        {publication_start, z_datetime:prev_day(Now)},
+                        {summary, <<"This blog website you're looking demonstrates "
+                            "only a small part of what you can do with a Zotonic site. "
+                            "For instance, did you know that sending mass-mailings is "
+                            "a builtin module? That it does OAuth out of the box? That "
+                            " Zotonic sites are SEO optimized by default?">>},
+                        {body, {file, datafile(blog, "learnmore.html")}}
+                    ]
+                },
+                {blog_article_demo,
+                    article,
+                    [{title, <<"Zotonic's Typography">>},
+                        {publication_start, z_datetime:prev_month(Now)},
+                        {summary, <<"This article demonstrates the typographic features that ",
+                            "Zotonic has. It shows creating ordered and unordered lists, "
+                            "blockquotes, and different methods of embedding media, even even "
+                            "showing an embedded video from Vimeo.com.">>},
+                        {body, {file, datafile(blog, "demo.html")}}
+                    ]
+                },
 
-       %% KEYWORDS
+                %% KEYWORDS
 
-       {kw_announcement,
-        keyword,
-        [{title, <<"Announcement">>}]
-       },
-       {kw_technical,
-        keyword,
-        [{title, <<"Technical">>}]
-       },
-       {kw_support,
-        keyword,
-        [{title, <<"Support">>}]
-       }
-      ],
+                {kw_announcement,
+                    keyword,
+                    [{title, <<"Announcement">>}]
+                },
+                {kw_technical,
+                    keyword,
+                    [{title, <<"Technical">>}]
+                },
+                {kw_support,
+                    keyword,
+                    [{title, <<"Support">>}]
+                }
+            ],
 
-      media =
-      [
-       {media_learning,
-        datafile(blog, "learning.jpg"),
-        [{title, <<"A bunch of computer books">>},
-         {summary, <<"Taken by Sibi from Flickr, licensed Attribution-Noncommercial-No Derivative Works 2.0.">>}]
-       },
-       {media_welcome,
-        datafile(blog, "welcome.jpg"),
-        [{title, <<"Rocky sunrise">>},
-         {summary, <<"Taken by Grant MacDonald from Flickr, CC licensed Attribution-Noncommercial 2.0.">>}]
-       },
-       {media_video,
-        [{title, <<"Zotonic introduction video">>},
-         {oembed_url, <<"http://vimeo.com/7630916">>}]
-       }
-      ],
+            media =
+            [
+                {media_learning,
+                    datafile(blog, "learning.jpg"),
+                    [{title, <<"A bunch of computer books">>},
+                        {summary, <<"Taken by Sibi from Flickr, licensed Attribution-Noncommercial-No ",
+                            "Derivative Works 2.0.">>}]
+                },
+                {media_welcome,
+                    datafile(blog, "welcome.jpg"),
+                    [{title, <<"Rocky sunrise">>},
+                        {summary, <<"Taken by Grant MacDonald from Flickr, CC licensed ",
+                            "Attribution-Noncommercial 2.0.">>}]
+                },
+                {media_video,
+                    [{title, <<"Zotonic introduction video">>},
+                        {oembed_url, <<"http://vimeo.com/7630916">>}]
+                }
+            ],
 
-      edges =
-      [
-       {blog_article_learnmore, author, administrator},
-       {blog_article_welcome, author, administrator},
-       {blog_article_demo, author, administrator},
+            edges =
+            [
+                {blog_article_learnmore, author, administrator},
+                {blog_article_welcome, author, administrator},
+                {blog_article_demo, author, administrator},
 
-       {blog_article_learnmore, subject, kw_support},
-       {blog_article_demo, subject, kw_technical},
-       {blog_article_welcome, subject, kw_support},
-       {blog_article_welcome, subject, kw_announcement},
+                {blog_article_learnmore, subject, kw_support},
+                {blog_article_demo, subject, kw_technical},
+                {blog_article_welcome, subject, kw_support},
+                {blog_article_welcome, subject, kw_announcement},
 
-       {blog_article_welcome, depiction, media_welcome},
-       {blog_article_learnmore, depiction, media_learning},
-       {blog_article_demo, depiction, media_welcome}
+                {blog_article_welcome, depiction, media_welcome},
+                {blog_article_learnmore, depiction, media_learning},
+                {blog_article_demo, depiction, media_welcome}
 
-      ]
-     },
+            ]
+        },
 
     lager:info("Installing blog data"),
     z_datamodel:manage(?MODULE, Datamodel, Context);
@@ -161,13 +183,15 @@ install(_, _) ->
     ok.
 
 
-%% @doc Retrieve the default menu structure for a given site. Used by mod_menu to create the menu.
-%% The menu can be defined in the site config file as a list of menu items under the key <tt>install_menu</tt>.
+%% @doc Retrieve the default menu structure for a given site. Used by mod_menu
+%% to create the menu.
+%% The menu can be defined in the site config file as a list of menu items under
+%% the key <tt>install_menu</tt>.
 %% If that is not defined, a default menu for the skeleton is used, if any.
 -spec default_menu(#context{}) -> MenuItems | undefined when
-      MenuItems :: [MenuItem],
-      MenuItem :: {PageName, MenuItems},
-      PageName :: atom().
+    MenuItems :: [MenuItem],
+    MenuItem :: {PageName, MenuItems},
+    PageName :: atom().
 default_menu(Context) ->
     case m_site:get(install_menu, Context) of
         Menu when is_list(Menu) -> Menu;

@@ -99,7 +99,7 @@ is_template_modified(Module, Site) ->
         [{_, CompileDT}] ->
             case ets:lookup(?TEMPLATE_MODIFIED, Site) of
                 [] -> false;
-                [{_,FlushDT}] -> FlushDT > CompileDT
+                [{_, FlushDT}] -> FlushDT > CompileDT
             end
     end.
 
@@ -107,7 +107,7 @@ is_template_modified(Module, Site) ->
 -spec file_mtime(filename:filename()) -> calendar:datetime() | 0.
 file_mtime(File) ->
     case file:read_file_info(File, [{time, universal}]) of
-        {ok, #file_info{mtime=MTime}} -> MTime;
+        {ok, #file_info{mtime = MTime}} -> MTime;
         {error, enoent} -> 0;
         {error, _} -> 0
     end.
@@ -158,16 +158,16 @@ handle_call({modified, File}, _From, State) ->
 
 handle_call({insert_template, Module, CompileTime}, _From, State) ->
     try
-        Deps = [ File || {File, _MTime} <- Module:dependencies() ],
+        Deps = [File || {File, _MTime} <- Module:dependencies()],
         OldDeps = ets:lookup(?TEMPLATE_FILES, Module),
         DelDeps = OldDeps -- Deps,
         NewDeps = Deps -- OldDeps,
         lists:foreach(
-                fun({_, File}) ->
-                    ets:delete_object(?FILE_TEMPLATE, {File, Module})
-                end,
-                DelDeps),
-        ets:insert(?FILE_TEMPLATE, [ {File, Module} || File <- NewDeps ]),
+            fun({_, File}) ->
+                ets:delete_object(?FILE_TEMPLATE, {File, Module})
+            end,
+            DelDeps),
+        ets:insert(?FILE_TEMPLATE, [{File, Module} || File <- NewDeps]),
         case ets:lookup(?TEMPLATE_MODIFIED, Module) of
             [{_, 0}] ->
                 ets:insert(?TEMPLATE_MODIFIED, {Module, CompileTime});
@@ -221,20 +221,20 @@ code_change(_OldVsn, State, _Extra) ->
 
 do_dependencies(File, 0) ->
     lists:foreach(
-            fun({_, Template}) ->
-                ets:insert(?TEMPLATE_MODIFIED, {Template, 0})
-            end,
-            ets:lookup(?FILE_TEMPLATE, File));
+        fun({_, Template}) ->
+            ets:insert(?TEMPLATE_MODIFIED, {Template, 0})
+        end,
+        ets:lookup(?FILE_TEMPLATE, File));
 do_dependencies(File, MTime) ->
     lists:foreach(
-            fun({_, Template}) ->
-                case ets:lookup(?TEMPLATE_MODIFIED, Template) of
-                    [{_, 0}] ->
-                        ok;
-                    [{_, MTimeTpl}] when MTimeTpl < MTime ->
-                        ets:insert(?TEMPLATE_MODIFIED, {Template, 0});
-                    _ ->
-                        ok
-                end
-            end,
-            ets:lookup(?FILE_TEMPLATE, File)).
+        fun({_, Template}) ->
+            case ets:lookup(?TEMPLATE_MODIFIED, Template) of
+                [{_, 0}] ->
+                    ok;
+                [{_, MTimeTpl}] when MTimeTpl < MTime ->
+                    ets:insert(?TEMPLATE_MODIFIED, {Template, 0});
+                _ ->
+                    ok
+            end
+        end,
+        ets:lookup(?FILE_TEMPLATE, File)).

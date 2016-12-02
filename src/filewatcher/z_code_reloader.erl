@@ -39,7 +39,7 @@
 
 % The state record for this server
 -record(state, {
-    periodic=true :: boolean(),
+    periodic = true :: boolean(),
     start_time :: calendar:datetime()
 }).
 
@@ -86,9 +86,9 @@ init([IsPeriodic]) ->
     %      _ -> nop
     % end,
     {ok, #state{
-            periodic=IsPeriodic,
-            start_time=calendar:local_time()
-        }}.
+        periodic = IsPeriodic,
+        start_time = calendar:local_time()
+    }}.
 
 
 %% @spec handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -133,24 +133,30 @@ handle_info({z_filewatcher_monitor, _Ref, {changed, Path, file, _FileInfo, _Diff
     z_filewatcher_handler:file_changed(modify, Path),
     {noreply, State};
 
-handle_info({z_filewatcher_monitor, _Ref, {found, Path, file, FileInfo, _Diff}}, #state{start_time=StartTime} = State) ->
+handle_info(
+    {z_filewatcher_monitor, _Ref, {found, Path, file, FileInfo, _Diff}},
+    #state{start_time = StartTime} = State
+) ->
     case StartTime < FileInfo#file_info.mtime of
         true -> z_filewatcher_handler:file_changed(create, Path);
         false -> ok
     end,
     {noreply, State};
 
-handle_info({z_filewatcher_monitor, _Ref, {changed, Path, directory, _FileInfo, Diff}}, State) ->
+handle_info(
+    {z_filewatcher_monitor, _Ref, {changed, Path, directory, _FileInfo, Diff}},
+    State
+) ->
     lists:foreach(
-            fun
-                ({deleted, File}) ->
-                    FilePath = filename:join([Path, File]),
-                    z_filewatcher_handler:file_changed(delete, FilePath);
-                ({added, File}) ->
-                    FilePath = filename:join([Path, File]),
-                    z_filewatcher_handler:file_changed(create, FilePath)
-            end,
-            Diff),
+        fun
+            ({deleted, File}) ->
+                FilePath = filename:join([Path, File]),
+                z_filewatcher_handler:file_changed(delete, FilePath);
+            ({added, File}) ->
+                FilePath = filename:join([Path, File]),
+                z_filewatcher_handler:file_changed(create, FilePath)
+        end,
+        Diff),
     {noreply, State};
 
 handle_info(_Info, State) ->
@@ -174,12 +180,13 @@ code_change(_OldVsn, State, _Extra) ->
 %% support functions
 %%====================================================================
 
-%% @doc Check if any of the loaded modules has been changed. If so reload the module's beam file. Also rescan for templates and files.
+%% @doc Check if any of the loaded modules has been changed. If so reload the
+%% module's beam file. Also rescan for templates and files.
 reload_all() ->
     case reload_loaded_modules() of
         [] ->
             z_sites_dispatcher:update_dispatchinfo(),
-            [ z_module_indexer:reindex(C) || C <- z_sites_manager:get_site_contexts() ],
+            [z_module_indexer:reindex(C) || C <- z_sites_manager:get_site_contexts()],
             ok;
         _ ->
             z:flush()
@@ -204,14 +211,16 @@ reload_module(M) ->
             Error
     end.
 
-%% @doc Reload all modules from the zotonic directory or subdirectories.  Return a list of modules reloaded. Empty list when nothing changed.
+%% @doc Reload all modules from the zotonic directory or subdirectories.
+%% Return a list of modules reloaded. Empty list when nothing changed.
 %% @spec reload_loaded_modules() -> [Result]
 reload_loaded_modules() ->
     Dir = z_utils:lib_dir(),
-    Modules = [{M,P} || {M, P} <- code:all_loaded(), is_list(P) andalso string:str(P, Dir) > 0],
-    [reload_module(M) || {M,Path} <- Modules, module_changed(M,Path)].
+    Modules = [{M, P} || {M, P} <- code:all_loaded(), is_list(P) andalso string:str(P, Dir) > 0],
+    [reload_module(M) || {M, Path} <- Modules, module_changed(M, Path)].
 
-%% @doc Check if the version number of the module has been changed.  Skip template modules.
+%% @doc Check if the version number of the module has been changed. Skip
+%% template modules.
 %% @spec module_changed(atom(), filename()) -> bool()
 module_changed(Module, BeamFile) ->
     case z_template:is_template_module(Module) of
@@ -235,9 +244,9 @@ module_changed(Module, BeamFile) ->
 init_scanner(true) ->
     Dirs = z_filewatcher_sup:watch_dirs(),
     lists:foreach(fun(Dir) ->
-                    _ = z_filewatcher_monitor:automonitor(Dir)
-                  end,
-                  Dirs),
+        _ = z_filewatcher_monitor:automonitor(Dir)
+    end,
+        Dirs),
     ok;
 init_scanner(_) ->
     ok.

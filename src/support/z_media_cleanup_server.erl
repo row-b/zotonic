@@ -71,8 +71,8 @@ init(Args) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
-    {ok, #state{site=Site}, ?CLEANUP_TIMEOUT_LONG}.
+    ]),
+    {ok, #state{site = Site}, ?CLEANUP_TIMEOUT_LONG}.
 
 %% @spec handle_call(Request, From, State) -> {reply, Reply, State} |
 %%                                      {reply, Reply, State, Timeout} |
@@ -100,7 +100,6 @@ handle_cast(cleanup, State) ->
 
 handle_cast(Message, State) ->
     {stop, {unknown_cast, Message}, State}.
-
 
 
 %% @spec handle_info(Info, State) -> {noreply, State} |
@@ -132,32 +131,37 @@ code_change(_OldVsn, State, _Extra) ->
 
 do_cleanup(Site) ->
     Context = z_context:new(Site),
-    do_cleanup_1(z_db:q("
+    do_cleanup1(z_db:q("
                     select id, filename, deleted
                     from medium_deleted
                     order by id
                     limit 100",
-                    Context),
-                 Context).
+        Context),
+        Context).
 
-do_cleanup_1([], _Context) ->
+do_cleanup1([], _Context) ->
     {ok, 0};
-do_cleanup_1(Rs, Context) ->
-    lists:foreach(fun(R) ->
-                    do_cleanup_file(R, Context)
-                  end, Rs),
-    Ranges = z_utils:ranges([ Id || {Id, _, _} <- Rs ]),
+do_cleanup1(Rs, Context) ->
+    lists:foreach(fun(R) -> do_cleanup_file(R, Context) end, Rs),
+    Ranges = z_utils:ranges([Id || {Id, _, _} <- Rs]),
     z_db:transaction(
-            fun(Ctx) ->
-                lists:foreach(fun
-                                ({A,A}) ->
-                                    z_db:q("delete from medium_deleted where id = $1", [A], Ctx);
-                                ({A,B}) ->
-                                    z_db:q("delete from medium_deleted where id >= $1 and id <= $2", [A,B], Ctx)
-                              end,
-                              Ranges)
-             end,
-             Context),
+        fun(Ctx) ->
+            lists:foreach(
+                fun
+                    ({A, A}) ->
+                        z_db:q("delete from medium_deleted where id = $1", [A], Ctx);
+                    ({A, B}) ->
+                        z_db:q(
+                            "delete from medium_deleted where id >= $1 and id <= $2",
+                            [A, B],
+                            Ctx
+                        )
+                end,
+                Ranges
+            )
+        end,
+        Context
+    ),
     {ok, length(Rs)}.
 
 do_cleanup_file({_Id, Filename, Date}, Context) ->
@@ -166,12 +170,12 @@ do_cleanup_file({_Id, Filename, Date}, Context) ->
     % Remove from the file system
     BasePreview = filename:join(PreviewPath, Filename),
     Previews = z_utils:wildcard(binary_to_list(iolist_to_binary([BasePreview, "(*"]))),
-    [ file:delete(Preview) || Preview <- Previews ],
+    [file:delete(Preview) || Preview <- Previews],
     file:delete(filename:join(ArchivePath, Filename)),
     % Remove from the file store
-    PreviewStore = iolist_to_binary([filename:basename(PreviewPath), $/, Filename, $( ]),
-    ArchiveStore = iolist_to_binary([filename:basename(ArchivePath), $/, Filename ]),
-    z_notifier:first(#filestore{action=delete, path=PreviewStore}, Context),
-    z_notifier:first(#filestore{action=delete, path=ArchiveStore}, Context),
+    PreviewStore = iolist_to_binary([filename:basename(PreviewPath), $/, Filename, $(]),
+    ArchiveStore = iolist_to_binary([filename:basename(ArchivePath), $/, Filename]),
+    z_notifier:first(#filestore{action = delete, path = PreviewStore}, Context),
+    z_notifier:first(#filestore{action = delete, path = ArchiveStore}, Context),
     lager:debug("Medium cleanup: ~p (from ~p)", [Filename, Date]),
     ok.

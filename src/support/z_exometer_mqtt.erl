@@ -79,10 +79,10 @@ get_context(undefined) ->
     z_context:new(zotonic_status);
 get_context(Site) when is_atom(Site) ->
     z_context:new(Site);
-get_context(#context{}=Context) ->
+get_context(#context{} = Context) ->
     Context.
 
-make_topic([erlang|Metric], DataPoint) ->
+make_topic([erlang | Metric], DataPoint) ->
     Topic = [<<"erlang">>, <<"stats">>, [z_convert:to_binary(M) || M <- Metric],
         z_convert:to_binary(DataPoint)],
     join_topic(Topic);
@@ -99,8 +99,8 @@ join(L, Sep) ->
 
 join([], _Sep, Acc) ->
     Acc;
-join([B| Rest], Sep, <<>>) ->
+join([B | Rest], Sep, <<>>) ->
     join(Rest, Sep, B);
-join([B| Rest], Sep, Acc) ->
+join([B | Rest], Sep, Acc) ->
     join(Rest, Sep, <<Acc/binary, Sep/binary, B/binary>>).
 

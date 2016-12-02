@@ -27,13 +27,13 @@
 
 -export([
     event/2
-    ]).
+]).
 
 -include("zotonic.hrl").
 
-event(#postback{message={admin_menu_edit, Args}}, Context) ->
+event(#postback{message = {admin_menu_edit, Args}}, Context) ->
     maybe_load_edit_panel(Args, Context);
-event(#postback_notify{message= <<"admin-menu-edit">>}, Context) ->
+event(#postback_notify{message = <<"admin-menu-edit">>}, Context) ->
     maybe_load_edit_panel([], Context);
 event(#sort{} = S, Context) ->
     controller_admin_edit:event(S, Context).
@@ -47,7 +47,11 @@ maybe_load_edit_panel(Args, Context) ->
                 {id, Id},
                 {tree_id, m_rsc:rid(z_context:get_q(<<"tree_id">>, Context), Context)}
             ],
-            Context1 = z_render:update("editcol", #render{template={cat, "_admin_frontend_edit.tpl"}, vars=Vars}, Context),
+            Context1 = z_render:update(
+                "editcol",
+                #render{template = {cat, "_admin_frontend_edit.tpl"}, vars = Vars},
+                Context
+            ),
             z_script:add_script(<<"setTimeout(function() { z_editor_init(); }, 100);">>, Context1)
     end.
 
@@ -61,6 +65,13 @@ maybe_load_edit_cat(Args, Context) ->
                 {cat, CatId},
                 {tree_id, m_rsc:rid(z_context:get_q(<<"tree_id">>, Context), Context)}
             ],
-            Context1 = z_render:update("editcol", #render{template={cat, "_admin_frontend_edit.tpl", m_category:is_a(CatId, Context)}, vars=Vars}, Context),
+            Context1 = z_render:update(
+                "editcol",
+                #render{
+                    template = {cat, "_admin_frontend_edit.tpl", m_category:is_a(CatId, Context)},
+                    vars = Vars
+                },
+                Context
+            ),
             z_script:add_script(<<"setTimeout(function() { z_editor_init(); }, 100);">>, Context1)
     end.

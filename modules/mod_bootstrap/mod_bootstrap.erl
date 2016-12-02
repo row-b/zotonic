@@ -1,6 +1,7 @@
 %% @author Andreas Stenius <git@astekk.se>
 %% @copyright 2012 Andreas Stenius
-%% @doc Bootstrap provides simple and flexible HTML, CSS, and Javascript for popular user interface components and interactions.
+%% @doc Bootstrap provides simple and flexible HTML, CSS, and Javascript for
+%% popular user interface components and interactions.
 
 %% Copyright 2012 Andreas Stenius
 %%
@@ -20,7 +21,10 @@
 -author("Andreas Stenius <git@astekk.se>").
 
 -mod_title("Bootstrap framework").
--mod_description("Bootstrap provides simple and flexible HTML, CSS, and Javascript for popular user interface components and interactions.").
+-mod_description(
+    "Bootstrap provides simple and flexible HTML, CSS, and Javascript for "
+    "popular user interface components and interactions."
+).
 -mod_prio(900).
 -mod_depends([base]).
 -mod_provides([bootstrap]).

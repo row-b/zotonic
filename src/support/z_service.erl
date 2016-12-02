@@ -21,18 +21,18 @@
 -author("Arjan Scherpenisse <arjan@scherpenisse.net>").
 
 -export([
-         needauth/1,
-         title/1,
-         all/1,
-         all/2,
-         serviceinfo/2,
-         http_methods/1,
-         handler/1,
-         grouped/1,
-         applies/2,
-         module_to_api_prefix/1,
-         api_prefix_to_module/1
-        ]).
+    needauth/1,
+    title/1,
+    all/1,
+    all/2,
+    serviceinfo/2,
+    http_methods/1,
+    handler/1,
+    grouped/1,
+    applies/2,
+    module_to_api_prefix/1,
+    api_prefix_to_module/1
+]).
 
 -include_lib("zotonic.hrl").
 
@@ -41,8 +41,9 @@
 %%
 all(Context) ->
     F = fun() ->
-            [ ServiceModule || #module_index{erlang_module=ServiceModule} <- z_module_indexer:find_all(service, true, Context) ]
-        end,
+        Services = z_module_indexer:find_all(service, true, Context),
+        [ServiceModule || #module_index{erlang_module = ServiceModule} <- Services]
+    end,
     z_depcache:memo(F, {z_services}, ?HOUR, [z_modules, module_index], Context).
 
 %%
@@ -53,16 +54,23 @@ grouped(Context) ->
 
 grouped(Services, _Context) ->
     P = [{proplists:get_value(module, Service), Service} || Service <- Services],
-    [{Mod, proplists:get_all_values(Mod, P)} || Mod <- proplists:get_keys(P) ].
+    [{Mod, proplists:get_all_values(Mod, P)} || Mod <- proplists:get_keys(P)].
 
 %%
 %% All services augmented as serviceinfo/1 record.
 %%
 all(info, Context) ->
     F = fun() ->
-            Info = z_module_indexer:find_all(service, true, Context),
-            [ serviceinfo(Name, Module, ErlangModule) || #module_index{key=#module_index_key{name=Name}, module=Module, erlang_module=ErlangModule} <- Info ]
-        end,
+        Info = z_module_indexer:find_all(service, true, Context),
+        [
+            serviceinfo(Name, Module, ErlangModule) ||
+            #module_index{
+                key = #module_index_key{name = Name},
+                module = Module,
+                erlang_module = ErlangModule
+            } <- Info
+        ]
+    end,
     z_depcache:memo(F, {z_services_info}, ?HOUR, [z_modules, module_index], Context);
 
 
@@ -71,10 +79,10 @@ all(info, Context) ->
 %%
 all(authvalues, Context) ->
     All = all(info, Context),
-    All2 = lists:filter( fun(S) -> proplists:get_value(needauth, S) end, All),
+    All2 = lists:filter(fun(S) -> proplists:get_value(needauth, S) end, All),
     Grouped = grouped(All2, Context),
-    lists:flatten([ {<<"*">>, <<"Everything">>} |
-                    [ [authvalue_module(Module) | [authvalue_service(S) || S <- Services]]   || {Module, Services} <- Grouped]]).
+    lists:flatten([{<<"*">>, <<"Everything">>} |
+        [[authvalue_module(Module) | [authvalue_service(S) || S <- Services]] || {Module, Services} <- Grouped]]).
 
 authvalue_module(Module) ->
     ModuleTitle = proplists:get_value(mod_title, Module:module_info(attributes)),
@@ -105,19 +113,20 @@ api_prefix_to_module(Base) when is_binary(Base) ->
 %%
 serviceinfo(ServiceModule, Context) ->
     All = all(info, Context),
-    case lists:filter(fun(I) -> proplists:get_value(service, I) =:= ServiceModule end, All) of
+    case lists:filter(fun(I) ->
+        proplists:get_value(service, I) =:= ServiceModule end, All) of
         [Info] -> Info;
         _ -> undefined
     end.
 
 serviceinfo(Method, ZotonicModule, ServiceModule) ->
     ZotonicModuleName = module_to_api_prefix(ZotonicModule),
-    [ {method, iolist_to_binary([ZotonicModuleName, $/, atom_to_list(Method)])},
-      {module, ZotonicModule},
-      {service, ServiceModule},
-      {title,  title(ServiceModule)},
-      {needauth, needauth(ServiceModule)},
-      {http, iolist_to_binary(z_utils:combine($,, http_methods(ServiceModule)))}
+    [{method, iolist_to_binary([ZotonicModuleName, $/, atom_to_list(Method)])},
+        {module, ZotonicModule},
+        {service, ServiceModule},
+        {title, title(ServiceModule)},
+        {needauth, needauth(ServiceModule)},
+        {http, iolist_to_binary(z_utils:combine($,, http_methods(ServiceModule)))}
     ].
 
 
@@ -140,7 +149,8 @@ title(Service) ->
 %%
 http_methods(Service) ->
     F = Service:module_info(functions),
-    lists:filter(fun (M) -> lists:member(handler(M), F) end, [<<"GET">>, <<"POST">>, <<"HEAD">>, <<"PUT">>, <<"DELETE">>]).
+    lists:filter(fun(M) ->
+        lists:member(handler(M), F) end, [<<"GET">>, <<"POST">>, <<"HEAD">>, <<"PUT">>, <<"DELETE">>]).
 
 %% define the handler mapping for the module.
 handler(<<"POST">>) ->
@@ -174,7 +184,7 @@ module_attr(Service, Attr, Default, T) ->
 %%
 %% Whether a services applies to a pattern.  applies(Pattern, Service).
 %%
-applies([Pattern|Rest], ServiceMethod) when is_binary(Pattern) ->
+applies([Pattern | Rest], ServiceMethod) when is_binary(Pattern) ->
     applies(Pattern, ServiceMethod) orelse applies(Rest, ServiceMethod);
 applies(Pattern, ServiceMethod) ->
     applies1(binary:split(Pattern, <<"/">>), binary:split(ServiceMethod, <<"/">>)).
@@ -185,7 +195,7 @@ applies1([], _) ->
     false;
 applies1([Part], [Part]) ->
     true;
-applies1([Part|Rest], [Part|Rest2]) ->
+applies1([Part | Rest], [Part | Rest2]) ->
     applies1(Rest, Rest2);
 applies1(_, _) ->
     false.

@@ -26,7 +26,7 @@
     select_verb/2,
     set_timer/3,
     set_timer/4
-    ]).
+]).
 
 -type verb() :: create|modify|delete.
 
@@ -34,7 +34,7 @@
 
 %% Which files do we not consider at all in the file_changed handler
 -define(FILENAME_BLACKLIST_RE,
-        "_flymake|\\.#|/sites/[^/]+/files/|/\\.git/|/\\.gitignore|\\.hg/").
+    "_flymake|\\.#|/sites/[^/]+/files/|/\\.git/|/\\.gitignore|\\.hg/").
 
 
 %% @doc Called when a file is changed on disk. Decides what to do.
@@ -49,10 +49,10 @@ file_changed(Verb, F) ->
         false ->
             z_filewatcher_mtime:modified(F),
             Message = handle_file(
-                            check_deleted(F, Verb),
-                            filename:basename(F),
-                            filename:extension(F),
-                            F),
+                check_deleted(F, Verb),
+                filename:basename(F),
+                filename:extension(F),
+                F),
             send_message(Message)
     end,
     ok.
@@ -67,7 +67,7 @@ file_blacklisted(F) when is_binary(F) ->
         _ ->
             case re:run(F, ?FILENAME_BLACKLIST_RE) of
                 {match, _} ->
-                     true;
+                    true;
                 nomatch ->
                     false
             end
@@ -97,17 +97,18 @@ check_deleted(F, Verb) ->
 set_timer(Filename, Verb, Timers) ->
     set_timer(Filename, Verb, Timers, 0).
 
--spec set_timer(string(), verb(), [{string(), timer:tref(), verb()}], integer()) -> [{string(), timer:tref(), verb()}].
+-spec set_timer(string(), verb(), [{string(), timer:tref(), verb()}], integer()) ->
+    [{string(), timer:tref(), verb()}].
 set_timer(Filename, Verb, Timers, Offset) ->
     {Timers1, OldVerb} = case lists:keytake(Filename, 1, Timers) of
-                              {value, {Filename, TRef, PVerb}, Ts1} ->
-                                  erlang:cancel_timer(TRef),
-                                  {Ts1, PVerb};
-                              false ->
-                                  {Timers, undefined}
-                         end,
+        {value, {Filename, TRef, PVerb}, Ts1} ->
+            erlang:cancel_timer(TRef),
+            {Ts1, PVerb};
+        false ->
+            {Timers, undefined}
+    end,
     Verb1 = z_filewatcher_handler:select_verb(Verb, OldVerb),
-    TRef2 = erlang:send_after(300+Offset, self(), {filechange, Verb1, Filename}),
+    TRef2 = erlang:send_after(300 + Offset, self(), {filechange, Verb1, Filename}),
     [{Filename, TRef2, Verb1} | Timers1].
 
 %% @doc Recompile Erlang files on the fly
@@ -122,22 +123,22 @@ handle_file(_Verb, _Basename, ".beam", F) ->
 
 handle_file(_Verb, _Basename, ".hrl", F) ->
     spawn(fun() ->
-             zotonic_compile:all()
-          end),
+        zotonic_compile:all()
+    end),
     "Rebuilding due to change header file: " ++ filename:basename(F);
 
 handle_file(_Verb, "erlydtl_parser.yrl", ".yrl", F) ->
     TargetDir = filename:join(os:getenv("ZOTONIC"), "src"),
-    os:cmd("erlc -o "++z_utils:os_escape(TargetDir)++" "++z_utils:os_escape(F)),
+    os:cmd("erlc -o " ++ z_utils:os_escape(TargetDir) ++ " " ++ z_utils:os_escape(F)),
     "Rebuilding yecc file: " ++ filename:basename(F);
 
 handle_file(_Verb, Basename, ".erl", F) ->
     Libdir = z_utils:lib_dir(),
     L = length(Libdir),
     FileBase = case string:substr(F, 1, L) of
-             Libdir -> string:substr(F, L+2);
-             _ -> F
-         end,
+        Libdir -> string:substr(F, L + 2);
+        _ -> F
+    end,
     try
         case make:files([F], zotonic_compile:compile_options()) of
             up_to_date ->
@@ -158,12 +159,16 @@ handle_file(_Verb, _Basename, SASS, F) when SASS =:= ".scss"; SASS =:= ".sass" -
     OutPath = filename:join(filename:dirname(InPath), "css"),
     case filelib:is_dir(OutPath) of
         true ->
-            os:cmd("sass -C --sourcemap=none --update " ++ z_utils:os_escape(InPath) ++ ":" ++ z_utils:os_escape(OutPath));
+            os:cmd(
+                "sass -C --sourcemap=none --update " ++ z_utils:os_escape(InPath) ++
+                ":" ++ z_utils:os_escape(OutPath)
+            );
         false ->
             undefined
     end;
 
-%% @doc LESS from lib/less -> lib/css, unless a file 'config' in the file dir is present
+%% @doc LESS from lib/less -> lib/css, unless a file 'config' in the file dir is
+%% present
 handle_file(_Verb, _Basename, ".less", F) ->
     InPath = filename:dirname(F),
     case handle_config_command(InPath, ".less") of
@@ -171,8 +176,10 @@ handle_file(_Verb, _Basename, ".less", F) ->
             OutPath = filename:join(filename:dirname(InPath), "css"),
             case filelib:is_dir(OutPath) of
                 true ->
-                    OutFile = filename:join(OutPath, filename:basename(F, ".less")++".css"),
-                    os:cmd("lessc " ++ z_utils:os_escape(F) ++ " > " ++ z_utils:os_escape(OutFile)),
+                    OutFile = filename:join(OutPath, filename:basename(F, ".less") ++ ".css"),
+                    os:cmd(
+                        "lessc " ++ z_utils:os_escape(F) ++ " > " ++ z_utils:os_escape(OutFile)
+                    ),
                     "Compiled " ++ OutFile;
                 false ->
                     undefined
@@ -186,7 +193,9 @@ handle_file(_Verb, _Basename, ".coffee", F) ->
     OutPath = filename:join(filename:dirname(InPath), "js"),
     case filelib:is_dir(OutPath) of
         true ->
-            os:cmd("coffee -o " ++ z_utils:os_escape(OutPath) ++ " -c " ++ z_utils:os_escape(InPath)),
+            os:cmd(
+                "coffee -o " ++ z_utils:os_escape(OutPath) ++ " -c " ++ z_utils:os_escape(InPath)
+            ),
             "Compiled " ++ OutPath;
         false ->
             undefined
@@ -210,9 +219,9 @@ handle_file(_Verb, _Basename, ".po", F) ->
                     undefined;
                 {match, [TranslationFile]} ->
                     z_sites_manager:foreach(
-                                        fun(Ctx) ->
-                                            z_trans_server:load_translations(Ctx)
-                                        end),
+                        fun(Ctx) ->
+                            z_trans_server:load_translations(Ctx)
+                        end),
                     "Reload translations of all sites due to: " ++ TranslationFile
             end;
         {match, [Site, TranslationFile]} ->
@@ -237,7 +246,8 @@ handle_file(_Verb, _Basename, _Extension, F) ->
             LibMsg
     end.
 
-%% @doc Check for config file on path and read proplist values from, to, params, return as tuple. Path values are local to Path.
+%% @doc Check for config file on path and read proplist values from, to, params,
+%% return as tuple. Path values are local to Path.
 config_command(Path) ->
     ConfigFile = filename:join(Path, "config"),
     case filelib:is_regular(ConfigFile) of
@@ -255,12 +265,15 @@ config_command(Path) ->
         false -> {}
     end.
 
-%% @doc Use config variables 'from', 'to', 'params' and run the lessc command from the path directory.
+%% @doc Use config variables 'from', 'to', 'params' and run the lessc command
+%% from the path directory.
 handle_config_command(Path, ".less") ->
     case config_command(Path) of
         {} -> undefined;
         {From, To, Params} ->
-            Cmd = "cd " ++ z_utils:os_escape(Path) ++ "; lessc " ++ Params ++ " " ++ z_utils:os_escape(filename:join(Path, From)) ++ " " ++ z_utils:os_escape(filename:join(Path, To)),
+            Cmd = "cd " ++ z_utils:os_escape(Path) ++ "; lessc " ++ Params
+                ++ " " ++ z_utils:os_escape(filename:join(Path, From)) ++ " "
+                ++ z_utils:os_escape(filename:join(Path, To)),
             os:cmd(Cmd),
             "Compiled " ++ To
     end.
@@ -271,9 +284,9 @@ maybe_handle_lib(F) ->
             undefined;
         {match, _} ->
             z_sites_manager:foreach(
-                                fun(Ctx) ->
-                                    z_module_indexer:reindex(Ctx)
-                                end),
+                fun(Ctx) ->
+                    z_module_indexer:reindex(Ctx)
+                end),
             "Reindexed sites due to changed lib file."
     end.
 
@@ -283,9 +296,9 @@ maybe_handle_dispatch(F) ->
             undefined;
         {match, _} ->
             z_sites_manager:foreach(
-                                fun(Ctx) ->
-                                    z_dispatcher:reload(Ctx)
-                                end),
+                fun(Ctx) ->
+                    z_dispatcher:reload(Ctx)
+                end),
             z_sites_dispatcher:update_dispatchinfo(),
             "Reindex sites due to file change: " ++ F
     end.
@@ -300,9 +313,9 @@ reindex_templates(F) ->
                     undefined;
                 {match, [TemplateFile]} ->
                     z_sites_manager:foreach(
-                                        fun(Ctx) ->
-                                            z_module_indexer:reindex(Ctx)
-                                        end),
+                        fun(Ctx) ->
+                            z_module_indexer:reindex(Ctx)
+                        end),
                     "Reindexed sites due to template: " ++ TemplateFile
             end;
         {match, [Site, TemplateFile]} ->
@@ -329,7 +342,10 @@ send_message(Message) ->
 send_message(_OS, "") ->
     undefined;
 send_message({unix, darwin}, Msg) ->
-    os:cmd("which terminal-notifier && terminal-notifier -title Zotonic  -message " ++ z_utils:os_escape(Msg));
+    os:cmd(
+        "which terminal-notifier && terminal-notifier -title Zotonic  -message "
+        ++ z_utils:os_escape(Msg)
+    );
 send_message({unix, _Arch}, Msg) ->
     os:cmd("which notify-send && notify-send \"Zotonic\" " ++ z_utils:os_escape(Msg));
 send_message(_OS, _Msg) ->
@@ -343,7 +359,8 @@ check_run_sitetest(Basename, F) ->
             zotonic_compile:ld(z_convert:to_atom(Module)),
             z_sitetest:run(z_convert:to_atom(SiteStr), [z_convert:to_atom(Module)]);
         nomatch ->
-            %% check whether compiled file is part of a site; if so, run its sitetests when we're watching it.
+            %% check whether compiled file is part of a site; if so, run its
+            %% sitetests when we're watching it.
             case re:run(F, "/sites/([^/]+).*?/", [{capture, all_but_first, list}]) of
                 nomatch ->
                     nop;

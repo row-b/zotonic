@@ -73,9 +73,9 @@ observe_session_context(#session_context{}, Context, _Context) ->
             Context;
         false ->
             Context1 = case z_context:get_session(tz, Context) of
-                            undefined -> Context;
-                            Tz -> z_context:set_tz(Tz, Context)
-                       end,
+                undefined -> Context;
+                Tz -> z_context:set_tz(Tz, Context)
+            end,
             case get_q_timezone(Context1) of
                 undefined -> Context1;
                 QTz -> try_set_timezone(QTz, Context1)
@@ -96,12 +96,12 @@ observe_auth_logon(#auth_logon{}, Context, _Context) ->
                     Context1;
                 _Undefined ->
                     % Ensure that the user has a default timezone
-                    catch m_rsc:update(UserId, [{pref_tz, z_context:tz(Context)}], Context),
+                        catch m_rsc:update(UserId, [{pref_tz, z_context:tz(Context)}], Context),
                     Context
             end
     end.
 
-observe_user_context(#user_context{id=UserId}, Context, _Context) ->
+observe_user_context(#user_context{id = UserId}, Context, _Context) ->
     case is_fixed_timezone(Context) of
         true ->
             Context;
@@ -114,7 +114,7 @@ observe_user_context(#user_context{id=UserId}, Context, _Context) ->
             end
     end.
 
-observe_rsc_update_done(#rsc_update_done{id=Id, pre_props=Pre, post_props=Post}, Context) ->
+observe_rsc_update_done(#rsc_update_done{id = Id, pre_props = Pre, post_props = Post}, Context) ->
     case is_fixed_timezone(Context) of
         true ->
             ok;
@@ -151,7 +151,8 @@ set_user_timezone(Tz, Context) ->
         UserId ->
             case m_rsc:p_no_acl(UserId, pref_tz, Context1) of
                 Tz -> nop;
-                _ -> catch m_rsc:update(UserId, [{pref_tz, z_context:tz(Context1)}], Context1)
+                _ ->
+                        catch m_rsc:update(UserId, [{pref_tz, z_context:tz(Context1)}], Context1)
             end
     end,
     Context1.
@@ -159,7 +160,7 @@ set_user_timezone(Tz, Context) ->
 
 %% @doc Set the timezone of the user. Only done when the found timezone is a known timezone.
 try_set_timezone(Tz, Context) ->
-    case localtime:tz_name({{2008,12,10},{15,30,0}}, z_convert:to_list(Tz)) of
+    case localtime:tz_name({{2008, 12, 10}, {15, 30, 0}}, z_convert:to_list(Tz)) of
         {error, _} ->
             lager:warning("Unknown timezone ~p", [Tz]),
             Context;
@@ -184,53 +185,53 @@ set_timezone(Tz, Context) ->
 
 observe_admin_menu(#admin_menu{}, Acc, Context) ->
     [
-     #menu_item{id=admin_l10n,
-                parent=admin_modules,
-                label=?__("Localization", Context),
-                url={admin_l10n},
-                visiblecheck={acl, use, mod_config}}
+        #menu_item{id = admin_l10n,
+            parent = admin_modules,
+            label = ?__("Localization", Context),
+            url = {admin_l10n},
+            visiblecheck = {acl, use, mod_config}}
 
-     |Acc].
+        | Acc].
 
 %% @doc Expand the two letter iso code country depending on the languages in the resource.
 observe_pivot_rsc_data(pivot_rsc_data, Rsc, Context) ->
-    Languages = lists:usort([ en, default_language(Context) | resource_languages(Rsc) ]),
+    Languages = lists:usort([en, default_language(Context) | resource_languages(Rsc)]),
     Rsc2 = expand_country(address_country, Rsc, Languages, Context),
     expand_country(mail_country, Rsc2, Languages, Context).
 
 expand_country(Prop, Rsc, Languages, Context) ->
-	Rsc1 = map_country(Prop, Rsc),
+    Rsc1 = map_country(Prop, Rsc),
     case proplists:get_value(Prop, Rsc1) of
         <<>> -> Rsc1;
         undefined -> Rsc1;
-        <<_,_>> = Iso ->
+        <<_, _>> = Iso ->
             Countries = lists:map(
-                            fun(Lang) ->
-                                m_l10n:country_name(Iso, Lang, Context)
-                            end,
-                            Languages),
-            add_alias(Iso, Rsc1 ++ [ {extra_pivot_data, C} || C <- lists:usort(Countries)]);
+                fun(Lang) ->
+                    m_l10n:country_name(Iso, Lang, Context)
+                end,
+                Languages),
+            add_alias(Iso, Rsc1 ++ [{extra_pivot_data, C} || C <- lists:usort(Countries)]);
         _Other -> Rsc1
     end.
 
-    add_alias(<<"us">>, R) ->
-        [{extra_pivot_data, <<"USA">>} | R];
-    add_alias(<<"uk">>, R) ->
-        [{extra_pivot_data, <<"England">>} | R];
-    add_alias(<<"nl">>, R) ->
-        [{extra_pivot_data, <<"Holland">>} | R];
-    add_alias(<<"be">>, R) ->
-        [{extra_pivot_data, <<"België"/utf8>>}, {extra_pivot_data, "Belgique"} | R];
-    add_alias(_, R) ->
-        R.
+add_alias(<<"us">>, R) ->
+    [{extra_pivot_data, <<"USA">>} | R];
+add_alias(<<"uk">>, R) ->
+    [{extra_pivot_data, <<"England">>} | R];
+add_alias(<<"nl">>, R) ->
+    [{extra_pivot_data, <<"Holland">>} | R];
+add_alias(<<"be">>, R) ->
+    [{extra_pivot_data, <<"België"/utf8>>}, {extra_pivot_data, "Belgique"} | R];
+add_alias(_, R) ->
+    R.
 
 %% @doc Map a country name to its iso code.  This very crude and should be more comprehensive.
 map_country(Prop, Rsc) ->
     case proplists:get_value(Prop, Rsc) of
         <<>> -> Rsc;
         undefined -> Rsc;
-        <<A,B>> when A =< $Z orelse B =< $Z ->
-            [{Prop, z_convert:to_binary(z_string:to_lower([A,B]))} | Rsc];
+        <<A, B>> when A =< $Z orelse B =< $Z ->
+            [{Prop, z_convert:to_binary(z_string:to_lower([A, B]))} | Rsc];
         Country ->
             case z_convert:to_binary(z_string:to_lower(Country)) of
                 <<"usa">> -> [{Prop, <<"us">>} | Rsc];
@@ -261,5 +262,5 @@ resource_languages(Rsc) ->
     case proplists:get_value(language, Rsc) of
         undefined -> [];
         <<>> -> [];
-        Langs -> [ z_convert:to_atom(Lang) || Lang <- Langs, Lang /= <<>> ]
+        Langs -> [z_convert:to_atom(Lang) || Lang <- Langs, Lang /= <<>>]
     end.

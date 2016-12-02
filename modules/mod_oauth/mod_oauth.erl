@@ -215,7 +215,7 @@ to_oauth_params(Context) ->
         _ ->
             Req
     end,
-    Params1 = [ {z_convert:to_list(K), z_convert:to_list(V)} || {K,V} <- Params ],
+    Params1 = [{z_convert:to_list(K), z_convert:to_list(V)} || {K, V} <- Params],
     strip_params(Params1).
 
 
@@ -292,7 +292,7 @@ to_oauth_consumer(Consumer, "RSA-SHA1") ->
 %% Send a WWW-Authenticate header
 %%
 authenticate(Reason, Context) ->
-    Context1 = cowmachine_req:set_resp_body([Reason,"\n"], Context),
+    Context1 = cowmachine_req:set_resp_body([Reason, "\n"], Context),
     Context2 = z_context:set_resp_header(
                     <<"www-authenticate">>,
                     <<"OAuth realm=\"\"">>,

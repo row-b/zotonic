@@ -66,15 +66,15 @@
 %%====================================================================
 
 %% @doc Starts the session manager server
--spec start_link( SiteProps :: list() ) -> {ok, pid()} | ignore | {error, term()}.
+-spec start_link(SiteProps :: list()) -> {ok, pid()} | ignore | {error, term()}.
 start_link(SiteProps) ->
     {site, Site} = proplists:lookup(site, SiteProps),
     Name = z_utils:name_for_site(?MODULE, Site),
     gen_server:start_link({local, Name}, ?MODULE, SiteProps, []).
 
 %% @doc Continue an existing session. No new session will be created.
--spec continue_session( #context{} ) -> {ok, #context{}} | {error, term()}.
-continue_session(#context{session_pid=Pid} = Context) when is_pid(Pid) ->
+-spec continue_session(#context{}) -> {ok, #context{}} | {error, term()}.
+continue_session(#context{session_pid = Pid} = Context) when is_pid(Pid) ->
     {ok, Context};
 continue_session(Context) ->
     case get_session_cookie(Context) of
@@ -83,8 +83,8 @@ continue_session(Context) ->
     end.
 
 %% @doc Start a new session or continue an existing session
--spec ensure_session( #context{} ) -> {ok, #context{}} | {error, term()}.
-ensure_session(#context{session_pid=Pid} = Context) when is_pid(Pid) ->
+-spec ensure_session(#context{}) -> {ok, #context{}} | {error, term()}.
+ensure_session(#context{session_pid = Pid} = Context) when is_pid(Pid) ->
     {ok, Context};
 ensure_session(Context) ->
     start_session(ensure, get_session_cookie(Context), Context).
@@ -92,7 +92,7 @@ ensure_session(Context) ->
 
 %% @doc Explicitly stop an existing session
 -spec stop_session(#context{}) -> {ok, #context{}} | {error, term()}.
-stop_session(#context{session_manager=SessionManager, session_pid=SessionPid} = Context) ->
+stop_session(#context{session_manager = SessionManager, session_pid = SessionPid} = Context) ->
     SessionId = get_session_cookie(Context),
     case gen_server:call(SessionManager, {stop_session, SessionPid, SessionId}) of
         ok -> {ok, clear_session_cookie(Context)};
@@ -100,7 +100,7 @@ stop_session(#context{session_manager=SessionManager, session_pid=SessionPid} = 
     end.
 
 -spec stop_session(binary(), #context{}) -> ok | {error, term()}.
-stop_session(SessionId, #context{session_manager=SessionManager} = Context) ->
+stop_session(SessionId, #context{session_manager = SessionManager} = Context) ->
     case whereis(SessionId, Context) of
         undefined ->
             {error, notfound};
@@ -113,7 +113,7 @@ stop_session(SessionId, #context{session_manager=SessionManager} = Context) ->
 
 %% @doc Rename the session id, only call this after ensure_session
 -spec rename_session(#context{}) -> {ok, #context{}} | {error, term()}.
-rename_session(#context{session_manager=SessionManager, session_pid=SessionPid} = Context) when is_pid(SessionPid) ->
+rename_session(#context{session_manager = SessionManager, session_pid = SessionPid} = Context) when is_pid(SessionPid) ->
     case z_context:get(set_session_id, Context) of
         true ->
             % The session id cookie has been set, ignore the session id change
@@ -122,7 +122,7 @@ rename_session(#context{session_manager=SessionManager, session_pid=SessionPid} 
             % Rename the session id, set a new session cookie.
             case gen_server:call(SessionManager, {rename_session, SessionPid}) of
                 {ok, NewSessionId} ->
-                    CleanContext = Context#context{session_id=NewSessionId, page_pid=undefined, page_id=undefined},
+                    CleanContext = Context#context{session_id = NewSessionId, page_pid = undefined, page_id = undefined},
                     {ok, set_session_cookie(NewSessionId, CleanContext)};
                 ignore ->
                     {ok, Context};
@@ -148,12 +148,12 @@ add_script(Script, Context) ->
 
 %% @spec count(Context) -> Int
 %% @doc Return the number of open sessions
-count(#context{session_manager=SessionManager}) ->
+count(#context{session_manager = SessionManager}) ->
     gen_server:call(SessionManager, count).
 
 %% @spec dump(Context) -> void()
 %% @doc Dump all session to stdout
-dump(#context{session_manager=SessionManager}) ->
+dump(#context{session_manager = SessionManager}) ->
     gen_server:call(SessionManager, dump).
 
 
@@ -174,7 +174,7 @@ get_session_id(Context) ->
 
 %% @doc Find the session with the given id
 -spec whereis(session_id(), #context{}) -> pid() | undefined.
-whereis(SessionId, #context{session_manager=SessionManager}) when is_binary(SessionId) ->
+whereis(SessionId, #context{session_manager = SessionManager}) when is_binary(SessionId) ->
     case gen_server:call(SessionManager, {whereis, SessionId}) of
         {ok, Pid} -> Pid;
         {error, notfound} -> undefined
@@ -182,7 +182,7 @@ whereis(SessionId, #context{session_manager=SessionManager}) when is_binary(Sess
 
 %% @doc Find all the sessions for a certain user
 -spec whereis_user(integer()|undefined, #context{}) -> [pid()].
-whereis_user(UserId, #context{site=Site}) ->
+whereis_user(UserId, #context{site = Site}) ->
     gproc:lookup_pids({p, l, {Site, user_session, UserId}}).
 
 
@@ -194,29 +194,29 @@ tick(SessionManager) when is_pid(SessionManager) ->
 
 %% @spec foreach(function(), #context{}) -> void()
 %% @doc Apply the given function to all sessions
-foreach(Function, #context{session_manager=SessionManager}) when is_function(Function) ->
+foreach(Function, #context{session_manager = SessionManager}) when is_function(Function) ->
     foreach(Function, SessionManager);
 foreach(Function, SessionManager) when is_function(Function) ->
     gen_server:cast(SessionManager, {foreach, Function}).
 
 %% @spec fold(function(), Acc0 :: term(), #context{}) -> Acc :: term()
 %% @doc Calls Fun on successive sessions together with an extra argument Acc (short for accumulator). Fun must return a new accumulator which is passed to the next call. Acc0 is returned if the list is empty. The evaluation order is undefined.
-fold(Function, Acc0, #context{session_manager=SessionManager}) when is_function(Function) ->
+fold(Function, Acc0, #context{session_manager = SessionManager}) when is_function(Function) ->
     fold(Function, Acc0, SessionManager);
 fold(Function, Acc0, SessionManager) ->
     gen_server:call(SessionManager, {fold, Function, Acc0}).
 
 %% @spec broadcast(#broadcast{}, Context) -> ok
 %% @doc Broadcast a notification message to all open sessions.
-broadcast(#broadcast{title=Title, message=Message, is_html=IsHtml, type=Type, stay=Stay}, Context) ->
+broadcast(#broadcast{title = Title, message = Message, is_html = IsHtml, type = Type, stay = Stay}, Context) ->
     Message1 = case IsHtml of
-        true -> [ <<"<strong>">>, Title, <<"</strong> ">>, Message ];
-        false -> [ <<"<strong>">>, z_html:escape(Title), <<"</strong> ">>, z_html:escape(Message) ]
+        true -> [<<"<strong>">>, Title, <<"</strong> ">>, Message];
+        false ->
+            [<<"<strong>">>, z_html:escape(Title), <<"</strong> ">>, z_html:escape(Message)]
     end,
     Context1 = z_context:prune_for_scomp(Context),
     add_script(z_render:growl(Message1, Type, Stay, Context1)),
     ok.
-
 
 
 %%====================================================================
@@ -231,12 +231,12 @@ init(SiteProps) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
+    ]),
     State = #session_srv{
-                    context=z_acl:sudo(z_context:new(Site)),
-                    key2pid=dict:new(),
-                    pid2key=dict:new()
-              },
+        context = z_acl:sudo(z_context:new(Site)),
+        key2pid = dict:new(),
+        pid2key = dict:new()
+    },
     update_session_metrics(State),
     timer:apply_interval(?SESSION_CHECK_EXPIRE * 1000, ?MODULE, tick, [self()]),
     process_flag(trap_exit, true),
@@ -278,31 +278,33 @@ handle_call(count, _From, State) ->
 %% Dump all sessions to stdout
 handle_call(dump, _From, State) ->
     SesPids = dict:to_list(State#session_srv.pid2key),
-    lists:foreach(fun({Pid,Key}) -> io:format("sid:~p~n", [Key]), z_session:dump(Pid) end, SesPids),
+    lists:foreach(fun({Pid, Key}) -> io:format("sid:~p~n", [Key]),
+        z_session:dump(Pid) end, SesPids),
     {reply, ok, State};
 
 %% Call Function on successive sessions together with an extra argument Acc (short for accumulator).
 %% Fun must return a new accumulator which is passed to the next call.
 %% Acc0 is returned if no sessions exist.
 handle_call({fold, Function, Acc0}, From,
-	    #session_srv{context=Context, pid2key=Pid2Key} = State) ->
+    #session_srv{context = Context, pid2key = Pid2Key} = State) ->
     SesPids = dict:fetch_keys(Pid2Key),
     if
-	is_function(Function, 2) ->
-	    spawn(fun() ->
-			  Res = lists:foldl(Function, Acc0, SesPids),
-			  gen_server:reply(From, Res)
-		  end);
-	is_function(Function, 3) ->
-	    spawn(fun() ->
-			  Res = lists:foldl(fun(Pid, Acc) -> Function(Pid, Context#context{session_pid=Pid}, Acc) end, Acc0, SesPids),
-			  gen_server:reply(From, Res)
-		  end)
+        is_function(Function, 2) ->
+            spawn(fun() ->
+                Res = lists:foldl(Function, Acc0, SesPids),
+                gen_server:reply(From, Res)
+            end);
+        is_function(Function, 3) ->
+            spawn(fun() ->
+                Res = lists:foldl(fun(Pid, Acc) ->
+                    Function(Pid, Context#context{session_pid = Pid}, Acc) end, Acc0, SesPids),
+                gen_server:reply(From, Res)
+            end)
     end,
     {noreply, State};
 
 %% Find a specific session.
-handle_call({whereis, SessionId}, _From,  #session_srv{key2pid=Key2Pid} = State) ->
+handle_call({whereis, SessionId}, _From, #session_srv{key2pid = Key2Pid} = State) ->
     case dict:find(SessionId, Key2Pid) of
         {ok, Pid} ->
             {reply, {ok, Pid}, State};
@@ -311,7 +313,7 @@ handle_call({whereis, SessionId}, _From,  #session_srv{key2pid=Key2Pid} = State)
     end;
 
 %% Find a specific session by pid
-handle_call({whois, SessionPid}, _From,  #session_srv{pid2key=Pid2Key} = State) ->
+handle_call({whois, SessionPid}, _From, #session_srv{pid2key = Pid2Key} = State) ->
     case dict:find(SessionPid, Pid2Key) of
         {ok, SessionId} ->
             {reply, {ok, SessionId}, State};
@@ -325,13 +327,15 @@ handle_call(Msg, _From, State) ->
 
 %% Apply Function to all sessions. The function application is spawned to support slow
 %% running functions and to protect the session manager from crashes.
-handle_cast({foreach, Function}, #session_srv{context=Context, pid2key=Pid2Key} = State) ->
+handle_cast({foreach, Function}, #session_srv{context = Context, pid2key = Pid2Key} = State) ->
     SesPids = dict:fetch_keys(Pid2Key),
     if
         is_function(Function, 1) ->
-            spawn(fun() -> lists:foreach(fun(Pid) -> Function(Pid) end, SesPids) end);
+            spawn(fun() ->
+                lists:foreach(fun(Pid) -> Function(Pid) end, SesPids) end);
         is_function(Function, 2) ->
-            spawn(fun() -> lists:foreach(fun(Pid) -> Function(Pid, Context#context{session_pid=Pid}) end, SesPids) end)
+            spawn(fun() -> lists:foreach(fun(Pid) ->
+                Function(Pid, Context#context{session_pid = Pid}) end, SesPids) end)
     end,
     {noreply, State};
 
@@ -388,8 +392,8 @@ erase_session_pid(Pid, State) ->
     case dict:find(Pid, State#session_srv.pid2key) of
         {ok, Key} ->
             State#session_srv{
-                    pid2key = dict:erase(Pid, State#session_srv.pid2key),
-                    key2pid = dict:erase(Key, State#session_srv.key2pid)};
+                pid2key = dict:erase(Pid, State#session_srv.pid2key),
+                key2pid = dict:erase(Key, State#session_srv.key2pid)};
         error ->
             State
     end.
@@ -399,9 +403,9 @@ erase_session_pid(Pid, State) ->
 -spec store_session_pid(session_id(), pid(), #session_srv{}) -> #session_srv{}.
 store_session_pid(SessionId, Pid, State) when is_binary(SessionId) and is_pid(Pid) ->
     State#session_srv{
-            pid2key = dict:store(Pid, SessionId, State#session_srv.pid2key),
-            key2pid = dict:store(SessionId, Pid, State#session_srv.key2pid)
-        }.
+        pid2key = dict:store(Pid, SessionId, State#session_srv.pid2key),
+        key2pid = dict:store(SessionId, Pid, State#session_srv.key2pid)
+    }.
 
 
 %% @doc Stop the session process linked to the session id
@@ -436,13 +440,12 @@ spawn_session(SessionId, PersistId, Context) ->
     Pid.
 
 
-
 %%====================================================================
 %% support functions - outside gen_server
 %%====================================================================
 
 
--spec start_session( optional | ensure, session_id(), #context{} ) -> {ok, #context{}} | {error, term()}.
+-spec start_session(optional | ensure, session_id(), #context{}) -> {ok, #context{}} | {error, term()}.
 start_session(optional, undefined, Context) ->
     {ok, Context};
 start_session(Action, CurrentSessionId, Context) ->
@@ -450,28 +453,28 @@ start_session(Action, CurrentSessionId, Context) ->
     case gen_server:call(Context#context.session_manager, {start_session, Action, CurrentSessionId, PersistId}) of
         {ok, SessionState, SessionPid, NewSessionId} ->
             Context1 = Context#context{
-                            session_pid=SessionPid,
-                            session_id=NewSessionId
-                       },
+                session_pid = SessionPid,
+                session_id = NewSessionId
+            },
             Context2 = case NewSessionId of
-                           CurrentSessionId -> Context1;
-                            _ -> set_session_cookie(NewSessionId, Context1)
-                       end,
+                CurrentSessionId -> Context1;
+                _ -> set_session_cookie(NewSessionId, Context1)
+            end,
             % lager:debug("Session: ~p ~p (old ~p, for ~p)", [SessionState, NewSessionId, CurrentSessionId, m_req:get(peer, Context2)]),
             Props = [
-               {remote_ip, m_req:get(peer, Context2)}
+                {remote_ip, m_req:get(peer, Context2)}
             ],
             z_session:set(Props, Context2),
             Context3 = case SessionState of
-                           new ->
-                               z_notifier:notify(#session_init{}, Context2),
-                               z_notifier:foldl(#session_init_fold{}, Context2, Context2);
-                           restart ->
-                               Context2;
-                           alive ->
-                               z_session:keepalive(Context2#context.page_pid, SessionPid),
-                               Context2
-                       end,
+                new ->
+                    z_notifier:notify(#session_init{}, Context2),
+                    z_notifier:foldl(#session_init_fold{}, Context2, Context2);
+                restart ->
+                    Context2;
+                alive ->
+                    z_session:keepalive(Context2#context.page_pid, SessionPid),
+                    Context2
+            end,
             {ok, Context3};
         {error, no_session_pid} when Action =:= optional ->
             lager:debug("Session: continuation request for non-existing session ~p", [CurrentSessionId]),
@@ -482,7 +485,7 @@ start_session(Action, CurrentSessionId, Context) ->
 
 
 %% @doc fetch the session id from the request, return 'undefined' when not found
--spec get_session_cookie( #context{} ) -> string() | undefined.
+-spec get_session_cookie(#context{}) -> string() | undefined.
 get_session_cookie(Context) ->
     case z_context:get_cookie(get_session_cookie_name(Context), Context) of
         undefined ->
@@ -507,25 +510,25 @@ get_session_cookie_name(Context) ->
     end.
 
 %% @doc Save the session id in a cookie on the user agent
--spec set_session_cookie( binary(), #context{} ) -> #context{}.
+-spec set_session_cookie(binary(), #context{}) -> #context{}.
 set_session_cookie(SessionId, Context) when is_binary(SessionId) ->
     Options = [{path, <<"/">>},
-               {http_only, true}],
+        {http_only, true}],
     z_context:set_cookie(
-                    get_session_cookie_name(Context),
-                    SessionId,
-                    Options,
-                    z_context:set(set_session_id, true, Context)).
+        get_session_cookie_name(Context),
+        SessionId,
+        Options,
+        z_context:set(set_session_id, true, Context)).
 
 
 %% @doc Remove the session id from the user agent and clear the session pid in the context
--spec clear_session_cookie( #context{} ) -> #context{}.
+-spec clear_session_cookie(#context{}) -> #context{}.
 clear_session_cookie(Context) ->
     Options = [{max_age, 0},
-               {path, <<"/">>},
-               {http_only, true}],
+        {path, <<"/">>},
+        {http_only, true}],
     Context1 = z_context:set_cookie(get_session_cookie_name(Context), <<>>, Options, Context),
-    Context1#context{session_id=undefined, session_pid=undefined}.
+    Context1#context{session_id = undefined, session_pid = undefined}.
 
 
 %% @doc Update the metrics of the session count

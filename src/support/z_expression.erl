@@ -19,7 +19,7 @@ parse(Expr) when is_binary(Expr) ->
     case template_compiler_scanner:scan(<<"{{", Expr/binary, "}}">>) of
         {ok, Tokens} ->
             case template_compiler_parser:parse(Tokens) of
-                {ok, {base, [Tree|_]}} -> {ok, simplify(Tree)};
+                {ok, {base, [Tree | _]}} -> {ok, simplify(Tree)};
                 Err -> Err
             end;
         {error, _} = Error ->
@@ -37,27 +37,26 @@ simplify({expr, Op, Expr}) ->
     {expr, z_convert:to_atom(Op), simplify(Expr)};
 simplify({identifier, _, <<"m">>}) ->
     m;
-simplify({identifier,_,Name}) ->
+simplify({identifier, _, Name}) ->
     {variable, Name};
 simplify({number_literal, _, Val}) ->
     z_convert:to_integer(Val);
 simplify({string_literal, _, Val}) ->
     Val;
-simplify({attribute, {identifier,_,Attr}, From}) ->
+simplify({attribute, {identifier, _, Attr}, From}) ->
     {attribute, z_convert:to_atom(Attr), simplify(From)};
 simplify({index_value, Array, Index}) ->
     {index_value, simplify(Array), simplify(Index)};
 simplify({value_list, List}) ->
-    {value_list, [ simplify(Elt) || Elt <- List ]};
-simplify({apply_filter, Expr, {filter, {identifier,_,Filter}, Args}}) ->
+    {value_list, [simplify(Elt) || Elt <- List]};
+simplify({apply_filter, Expr, {filter, {identifier, _, Filter}, Args}}) ->
     {apply_filter,
         z_convert:to_atom(<<"filter_", Filter/binary>>),
         z_convert:to_atom(Filter),
         simplify(Expr),
-        [ simplify(Arg) || Arg <- Args ]};
+        [simplify(Arg) || Arg <- Args]};
 simplify({value, Expr, []}) ->
     simplify(Expr).
-
 
 
 %% @doc Evaluate a parsed expression tree.
@@ -75,13 +74,13 @@ eval1({index_value, Array, Index}, Vars, Context) ->
 eval1({attribute, Attr, From}, Vars, Context) ->
     z_template_compiler_runtime:find_value(Attr, eval1(From, Vars, Context), #{}, Context);
 eval1({value_list, List}, Vars, Context) ->
-    [ eval1(Elt, Vars, Context) || Elt <- List ];
+    [eval1(Elt, Vars, Context) || Elt <- List];
 eval1({apply_filter, filter_default, _Func, Expr, Args}, Vars, Context) ->
     A = eval1(Expr, Vars, Context),
     case A of
         Empty when Empty =:= undefined; Empty =:= []; Empty =:= <<>> ->
             case Args of
-                [B|_] -> eval1(B, Vars, Context);
+                [B | _] -> eval1(B, Vars, Context);
                 _ -> undefined
             end;
         _ -> A
@@ -91,15 +90,15 @@ eval1({apply_filter, IfNone, _Func, Expr, Args}, Vars, Context)
     case eval1(Expr, Vars, Context) of
         undefined ->
             case Args of
-                [B|_] -> eval1(B, Vars, Context);
+                [B | _] -> eval1(B, Vars, Context);
                 _ -> undefined
             end;
         A -> A
     end;
 eval1({apply_filter, Mod, Func, Expr, Args}, Vars, Context) ->
-    EvalArgs = [ eval1(Arg, Vars, Context) || Arg <- Args],
+    EvalArgs = [eval1(Arg, Vars, Context) || Arg <- Args],
     EvalExpr = eval1(Expr, Vars, Context),
-    erlang:apply(Mod, Func, [EvalExpr | EvalArgs] ++[Context]);
+    erlang:apply(Mod, Func, [EvalExpr | EvalArgs] ++ [Context]);
 eval1(m, _Vars, _Context) ->
     #m{};
 eval1(Val, _Vars, _Context) ->

@@ -46,7 +46,7 @@
     trace_compile/4,
     trace_render/3,
     trace_block/4
-    ]).
+]).
 
 -include("zotonic.hrl").
 -include_lib("template_compiler/include/template_compiler.hrl").
@@ -54,7 +54,7 @@
 
 %% @doc Dynamic mapping of a template to a template name, context sensitive on the template vars.
 -spec map_template(template_compiler:template(), map(), term()) ->
-            {ok, template_compiler:template_file()} | {error, enoent|term()}.
+    {ok, template_compiler:template_file()} | {error, enoent|term()}.
 map_template(#template_file{} = Tpl, _Vars, _Context) ->
     {ok, Tpl};
 map_template({cat, Template}, Vars, Context) ->
@@ -62,7 +62,7 @@ map_template({cat, Template}, Vars, Context) ->
         undefined -> map_template_1(Template, Context);
         Id -> map_template({cat, Template, Id}, Vars, Context)
     end;
-map_template({cat, Template, [Cat|_] = IsA}, _Vars, Context) when is_atom(Cat) ->
+map_template({cat, Template, [Cat | _] = IsA}, _Vars, Context) when is_atom(Cat) ->
     map_template_cat(Template, IsA, Context);
 map_template({cat, Template, Id}, _Vars, Context) ->
     case m_rsc:rid(Id, Context) of
@@ -78,39 +78,39 @@ map_template(Template, _Vars, Context) ->
 
 find_next_template(_Filename, []) ->
     {error, enoent};
-find_next_template(Filename, [#module_index{filepath=Filename},Next|_]) ->
+find_next_template(Filename, [#module_index{filepath = Filename}, Next | _]) ->
     Key = Next#module_index.key,
     {ok, #template_file{
-        filename=Next#module_index.filepath,
-        template=Key#module_index_key.name
+        filename = Next#module_index.filepath,
+        template = Key#module_index_key.name
     }};
-find_next_template(Filename, [_|Rest]) ->
+find_next_template(Filename, [_ | Rest]) ->
     find_next_template(Filename, Rest).
 
 
 map_template_cat(Template, None, Context) when None =:= <<>>; None =:= undefined; None =:= [] ->
     map_template_1(Template, Context);
-map_template_cat(Template, [Item|_]=IsA, Context) when is_atom(Item) ->
+map_template_cat(Template, [Item | _] = IsA, Context) when is_atom(Item) ->
     map_template_cat_1(Template, IsA, Context);
 map_template_cat(Template, Id, Context) ->
     IsA = case {m_rsc:is_a(Id, Context), m_rsc:p(Id, name, Context)} of
-                {L, undefined} -> L;
-                {L, Name} -> L ++ [Name]
-          end,
+        {L, undefined} -> L;
+        {L, Name} -> L ++ [Name]
+    end,
     map_template_cat_1(Template, IsA, Context).
 
 map_template_cat_1(Template, Stack, Context) when is_binary(Template) ->
     Root = filename:rootname(Template),
     Ext = filename:extension(Template),
     case lists:foldr(fun(Cat, {error, enoent}) ->
-                        map_template_1(
-                                <<Root/binary, $., (z_convert:to_binary(Cat))/binary, Ext/binary>>,
-                                Context);
-                    (_Cat, Found) ->
-                        Found
-                 end,
-                 {error, enoent},
-                 Stack)
+        map_template_1(
+            <<Root/binary, $., (z_convert:to_binary(Cat))/binary, Ext/binary>>,
+            Context);
+        (_Cat, Found) ->
+            Found
+    end,
+        {error, enoent},
+        Stack)
     of
         {error, enoent} -> map_template_1(Template, Context);
         {ok, _} = OK -> OK
@@ -124,7 +124,7 @@ map_template_all({cat, Template}, Vars, Context) ->
         undefined -> map_template_all_1(Template, Context);
         Id -> map_template_all({cat, Template, Id}, Vars, Context)
     end;
-map_template_all({cat, Template, [Cat|_] = IsA}, _Vars, Context) when is_atom(Cat) ->
+map_template_all({cat, Template, [Cat | _] = IsA}, _Vars, Context) when is_atom(Cat) ->
     map_template_all_cat(Template, IsA, Context);
 map_template_all({cat, Template, Id}, _Vars, Context) ->
     case m_rsc:rid(Id, Context) of
@@ -136,47 +136,47 @@ map_template_all(Template, _Vars, Context) when is_binary(Template) ->
 
 map_template_all_1(Template, Context) ->
     Tpls = z_module_indexer:find_all(template, Template, Context),
-    [ #template_file{
-                filename=Filename,
-                template=Key#module_index_key.name
-      } || #module_index{filepath=Filename, key=Key} <- Tpls ].
+    [#template_file{
+        filename = Filename,
+        template = Key#module_index_key.name
+    } || #module_index{filepath = Filename, key = Key} <- Tpls].
 
 map_template_all_cat(Template, None, Context) when None =:= <<>>; None =:= undefined; None =:= [] ->
     map_template_all_1(Template, Context);
-map_template_all_cat(Template, [Item|_]=IsA, Context) when is_atom(Item) ->
+map_template_all_cat(Template, [Item | _] = IsA, Context) when is_atom(Item) ->
     map_template_all_cat_1(Template, IsA, Context);
 map_template_all_cat(Template, Id, Context) ->
     IsA = case {m_rsc:is_a(Id, Context), m_rsc:p(Id, name, Context)} of
-                {L, undefined} -> L;
-                {L, Name} -> L ++ [Name]
-          end,
+        {L, undefined} -> L;
+        {L, Name} -> L ++ [Name]
+    end,
     map_template_all_cat_1(Template, IsA, Context).
 
 map_template_all_cat_1(Template, Stack, Context) when is_binary(Template) ->
     Root = filename:rootname(Template),
     Ext = filename:extension(Template),
     Templates = lists:foldr(fun(Cat, Templates) ->
-                                Name = <<Root/binary, $., (z_convert:to_binary(Cat))/binary, Ext/binary>>,
-                                Templates ++ z_module_indexer:find_all(template, Name, Context)
-                            end,
-                            [],
-                            Stack),
+        Name = <<Root/binary, $., (z_convert:to_binary(Cat))/binary, Ext/binary>>,
+        Templates ++ z_module_indexer:find_all(template, Name, Context)
+    end,
+        [],
+        Stack),
     Tpls = Templates ++ z_module_indexer:find_all(template, Template, Context),
-    [ #template_file{
-                filename=Filename,
-                template=Key#module_index_key.name
-      } || #module_index{filepath=Filename, key=Key} <- Tpls ].
+    [#template_file{
+        filename = Filename,
+        template = Key#module_index_key.name
+    } || #module_index{filepath = Filename, key = Key} <- Tpls].
 
 
 %% @doc Map a template name to a template file.
 -spec map_template_1(binary(), #context{}) ->
-            {ok, filename:filename()} | {error, enoent|term()}.
+    {ok, filename:filename()} | {error, enoent|term()}.
 map_template_1(Template, Context) when is_binary(Template) ->
     case z_module_indexer:find(template, Template, Context) of
-        {ok, #module_index{filepath=Filename, key=Key}} ->
+        {ok, #module_index{filepath = Filename, key = Key}} ->
             {ok, #template_file{
-                filename=Filename,
-                template=Key#module_index_key.name
+                filename = Filename,
+                template = Key#module_index_key.name
             }};
         {error, _} = Error ->
             Error
@@ -196,20 +196,20 @@ is_modified(Filename, Mtime, _Context) ->
 
 %% @doc Compile time mapping of nested value lookup
 -spec compile_map_nested_value(Tokens :: list(), ContextVar :: string(), Context :: term()) -> NewTokens :: list().
-compile_map_nested_value([{identifier, _, <<"m">>}, {identifier, _, Model}|Rest], _ContextVar, _Context) ->
+compile_map_nested_value([{identifier, _, <<"m">>}, {identifier, _, Model} | Rest], _ContextVar, _Context) ->
     Module = binary_to_atom(<<"m_", Model/binary>>, 'utf8'),
-    [{ast, erl_syntax:abstract(#m{model=Module})} | Rest];
-compile_map_nested_value([{identifier, _, <<"q">>}, {identifier, _, QArg}|Rest], ContextVar, _Context) ->
+    [{ast, erl_syntax:abstract(#m{model = Module})} | Rest];
+compile_map_nested_value([{identifier, _, <<"q">>}, {identifier, _, QArg} | Rest], ContextVar, _Context) ->
     Ast = erl_syntax:application(
-                erl_syntax:atom(z_context),
-                erl_syntax:atom(get_q),
-                [ erl_syntax:abstract(QArg), erl_syntax:variable(ContextVar) ]),
+        erl_syntax:atom(z_context),
+        erl_syntax:atom(get_q),
+        [erl_syntax:abstract(QArg), erl_syntax:variable(ContextVar)]),
     [{ast, Ast} | Rest];
 compile_map_nested_value([{identifier, _, <<"z_language">>}], ContextVar, _Context) ->
     Ast = erl_syntax:application(
-                erl_syntax:atom(z_context),
-                erl_syntax:atom(language),
-                [ erl_syntax:variable(ContextVar) ]),
+        erl_syntax:atom(z_context),
+        erl_syntax:atom(language),
+        [erl_syntax:variable(ContextVar)]),
     [{ast, Ast}];
 compile_map_nested_value(Ts, _ContextVar, _Context) ->
     Ts.
@@ -217,16 +217,16 @@ compile_map_nested_value(Ts, _ContextVar, _Context) ->
 
 %% @doc Find a list of values at once, easier and more efficient than a nested find_value/4
 %%      Add pattern matching here for nested lookups.
-find_nested_value([#m{} = M|Ks], TplVars, Context) ->
+find_nested_value([#m{} = M | Ks], TplVars, Context) ->
     find_nested_value_1(M, Ks, TplVars, Context);
-find_nested_value([K|Ks], TplVars, Context) ->
+find_nested_value([K | Ks], TplVars, Context) ->
     find_nested_value_1(find_value(K, TplVars, TplVars, Context), Ks, TplVars, Context).
 
 find_nested_value_1(undefined, _Ks, _TplVars, _Context) ->
     undefined;
 find_nested_value_1(V, [], _TplVars, _Context) ->
     V;
-find_nested_value_1(V, [K|Ks], TplVars, Context) ->
+find_nested_value_1(V, [K | Ks], TplVars, Context) ->
     find_nested_value_1(find_value(K, V, TplVars, Context), Ks, TplVars, Context).
 
 
@@ -242,7 +242,7 @@ find_value(Key, #search_result{} = S, _TplVars, _Context) when is_integer(Key) -
     catch
         _:_ -> undefined
     end;
-find_value(Key, [N|_], _TplVars, Context) when is_atom(Key), is_integer(N) ->
+find_value(Key, [N | _], _TplVars, Context) when is_atom(Key), is_integer(N) ->
     % Assume a predicate/property lookup in a list of ids, map to lookup of first entry
     m_rsc:p(N, Key, Context);
 find_value(Key, Id, _TplVars, Context) when is_atom(Key), is_integer(Id) ->
@@ -251,12 +251,13 @@ find_value(Key, Id, _TplVars, Context) when is_atom(Key), is_integer(Id) ->
 find_value(Key, RscName, _TplVars, Context) when is_atom(Key), is_atom(RscName) ->
     % Property of a resource, just assume an integer is a rsc id
     m_rsc:p(RscName, Key, Context);
-find_value(Name, [[{A,_}|_]|_] = Blocks, _TplVars, _Context ) when is_atom(A), not is_integer(Name) ->
+find_value(Name, [[{A, _} | _] | _] = Blocks, _TplVars, _Context) when is_atom(A), not is_integer(Name) ->
     % List of proplists - blocks in the rsc
     NameB = z_convert:to_binary(Name),
-    case lists:dropwhile(fun(Ps) -> proplists:get_value(name, Ps) =/= NameB end, Blocks) of
+    case lists:dropwhile(fun(Ps) ->
+        proplists:get_value(name, Ps) =/= NameB end, Blocks) of
         [] -> undefined;
-        [Block|_] -> Block
+        [Block | _] -> Block
     end;
 find_value(Key, #m_search_result{} = S, TplVars, Context) when is_integer(Key) ->
     find_value(Key, S#m_search_result.result, TplVars, Context);
@@ -272,7 +273,8 @@ find_value(Key, #search_result{} = S, _TplVars, _Context) when is_atom(Key) ->
     end;
 find_value(Key, #m_search_result{} = S, _TplVars, _Context) when is_atom(Key) ->
     case Key of
-        search -> {S#m_search_result.search_name, S#m_search_result.search_props};
+        search ->
+            {S#m_search_result.search_name, S#m_search_result.search_props};
         search_name -> S#m_search_result.search_name;
         search_props -> S#m_search_result.search_props;
         result -> S#m_search_result.result;
@@ -282,15 +284,15 @@ find_value(Key, #m_search_result{} = S, _TplVars, _Context) when is_atom(Key) ->
         next -> S#m_search_result.next;
         prev -> S#m_search_result.prev
     end;
-find_value(Key, #rsc_list{list=L}, _TplVars, _Context) when is_integer(Key) ->
+find_value(Key, #rsc_list{list = L}, _TplVars, _Context) when is_integer(Key) ->
     try lists:nth(Key, L)
     catch _:_ -> undefined
     end;
-find_value(Key, #rsc_list{list=[H|_T]}, TplVars, Context) ->
+find_value(Key, #rsc_list{list = [H | _T]}, TplVars, Context) ->
     find_value(Key, H, TplVars, Context);
-find_value(_Key, #rsc_list{list=[]}, _TplVars, _Context) ->
+find_value(_Key, #rsc_list{list = []}, _TplVars, _Context) ->
     undefined;
-find_value(Name, #m{model=Module} = M, _TplVars, Context) ->
+find_value(Name, #m{model = Module} = M, _TplVars, Context) ->
     Module:m_find_value(Name, M, Context);
 find_value(IsoAtom, Text, _TplVars, _Context) when is_atom(IsoAtom), is_binary(Text) ->
     case z_language:is_valid(atom_to_list(IsoAtom)) of
@@ -305,17 +307,17 @@ find_value(Key, Ps, TplVars, Context) ->
 set_context_vars(Args, Context) when is_map(Args); is_list(Args) ->
     Lang = z_context:language(Context),
     Context1 = case get(z_language, Args, Lang) of
-            undefined -> Context;
-            Lang -> Context;
-            NewLang -> z_context:set_language(NewLang, Context)
+        undefined -> Context;
+        Lang -> Context;
+        NewLang -> z_context:set_language(NewLang, Context)
     end,
     Context2 = case z_convert:to_bool(get(sudo, Args, false)) of
-            false -> Context1;
-            true -> z_acl:sudo(Context1)
+        false -> Context1;
+        true -> z_acl:sudo(Context1)
     end,
     Context3 = case z_convert:to_bool(get(anondo, Args, false)) of
-            false -> Context2;
-            true -> z_acl:anondo(Context2)
+        false -> Context2;
+        true -> z_acl:anondo(Context2)
     end,
     Context3.
 
@@ -341,14 +343,14 @@ lookup_translation({trans, _} = Trans, _TplVars, Context) ->
 
 %% @doc Render a custom tag (Zotonic scomp)
 %% @todo support render_optional/all
--spec custom_tag(Tag::atom(), Args::list(), Vars::map(), Context::term()) -> template_compiler:render_result().
+-spec custom_tag(Tag :: atom(), Args :: list(), Vars :: map(), Context :: term()) -> template_compiler:render_result().
 custom_tag(Tag, Args, Vars, Context) ->
     z_scomp:render(Tag, Args, Vars, Context).
 
 
 %% @doc Render image/image_url/media/url/lib tag. The Expr is the media item or dispatch rule.
--spec builtin_tag(template_compiler:builtin_tag(), Expr::term(), Args::list(), Vars::map(), Context::term()) ->
-            template_compiler:render_result().
+-spec builtin_tag(template_compiler:builtin_tag(), Expr :: term(), Args :: list(), Vars :: map(), Context :: term()) ->
+    template_compiler:render_result().
 builtin_tag(Tag, Expr, Args, Vars, Context) ->
     builtin_tag_1(Tag, Expr, to_simple_values(Args, Context), Vars, Context).
 
@@ -369,15 +371,15 @@ builtin_tag_1(Tag, _Expr, _Args, _Vars, Context) ->
 
 %% @doc Render a block, cache the result for some time. Caching should be implemented by the runtime.
 %% @todo This needs to be updated for the modern ACL modules (see z_acl)
--spec cache_tag(MaxAge::integer(), Name::binary(), Args::list(), function(), TplVars::map(), Context::term()) ->
-                template_compiler:render_result().
+-spec cache_tag(MaxAge :: integer(), Name :: binary(), Args :: list(), function(), TplVars :: map(), Context :: term()) ->
+    template_compiler:render_result().
 cache_tag(MaxAge, Name, Args, Fun, TplVars, Context) ->
     FunVars = lists:foldl(
-                    fun({K,V}, Acc) ->
-                        Acc#{K => V}
-                    end,
-                    TplVars,
-                    Args),
+        fun({K, V}, Acc) ->
+            Acc#{K => V}
+        end,
+        TplVars,
+        Args),
     case do_cache(Args, Context) of
         false ->
             Fun(FunVars, Context);
@@ -426,11 +428,11 @@ to_bool({trans, _} = Tr, Context) ->
         <<>> -> false;
         _ -> true
     end;
-to_bool(#m{model=Model} = M, Context) ->
+to_bool(#m{model = Model} = M, Context) ->
     to_bool(Model:m_value(M, Context), Context);
-to_bool(#search_result{result=L}, Context) ->
+to_bool(#search_result{result = L}, Context) ->
     to_bool(L, Context);
-to_bool(#m_search_result{result=L}, Context) ->
+to_bool(#m_search_result{result = L}, Context) ->
     to_bool(L, Context);
 to_bool(Value, _Context) ->
     z_convert:to_bool_strict(Value).
@@ -438,10 +440,10 @@ to_bool(Value, _Context) ->
 %% @doc Convert a value to a list.
 -spec to_list(Value :: term(), Context :: term()) -> list().
 to_list(undefined, _Context) -> [];
-to_list(#m{model=Model} = M, Context) -> Model:m_to_list(M, Context);
-to_list(#rsc_list{list=L}, _Context) -> L;
-to_list(#search_result{result=L}, _Context) -> L;
-to_list(#m_search_result{result=Result}, Context) -> to_list(Result, Context);
+to_list(#m{model = Model} = M, Context) -> Model:m_to_list(M, Context);
+to_list(#rsc_list{list = L}, _Context) -> L;
+to_list(#search_result{result = L}, _Context) -> L;
+to_list(#m_search_result{result = Result}, Context) -> to_list(Result, Context);
 to_list(q, Context) -> z_context:get_q_all(Context);
 to_list(q_validated, _Context) -> [];
 to_list({trans, _}, _Context) -> [];
@@ -449,17 +451,17 @@ to_list(V, Context) -> template_compiler_runtime:to_list(V, Context).
 
 
 %% @doc Convert an argument list's values to something that can be handled as an argument to scomps.
--spec to_simple_values(Args::list(), Context::term()) -> list().
+-spec to_simple_values(Args :: list(), Context :: term()) -> list().
 to_simple_values(Args, Context) when is_list(Args) ->
-    [ {K, to_simple_value(Arg, Context)} || {K, Arg} <- Args ].
+    [{K, to_simple_value(Arg, Context)} || {K, Arg} <- Args].
 
 %% @doc Convert a value to something that can be handled as an argument to scomps.
--spec to_simple_value(Value::term(), Context::term()) -> term().
-to_simple_value(#m{model=Model} = M, Context) ->
+-spec to_simple_value(Value :: term(), Context :: term()) -> term().
+to_simple_value(#m{model = Model} = M, Context) ->
     Model:m_value(M, Context);
-to_simple_value(#m_search_result{result=#search_result{result=Result}}, _Context) ->
+to_simple_value(#m_search_result{result = #search_result{result = Result}}, _Context) ->
     Result;
-to_simple_value(#rsc_list{list=L}, _Context) ->
+to_simple_value(#rsc_list{list = L}, _Context) ->
     L;
 to_simple_value({trans, _} = Trans, Context) ->
     z_trans:lookup_fallback(Trans, Context);
@@ -468,18 +470,18 @@ to_simple_value(V, _Context) ->
 
 
 %% @doc Convert a value to an iolist, used for converting values in {{ ... }} expressions.
--spec to_render_result(Value::term(), TplVars:: map(), Context::term()) -> template_compiler:render_result().
+-spec to_render_result(Value :: term(), TplVars :: map(), Context :: term()) -> template_compiler:render_result().
 to_render_result(undefined, _TplVars, _Context) ->
     <<>>;
-to_render_result({{Y,M,D},{H,I,S}} = Date, TplVars, Context)
+to_render_result({{Y, M, D}, {H, I, S}} = Date, TplVars, Context)
     when is_integer(Y), is_integer(M), is_integer(D),
-         is_integer(H), is_integer(I), is_integer(S) ->
+    is_integer(H), is_integer(I), is_integer(S) ->
     z_datetime:format(Date, "Y-m-d H:i:s", set_context_vars(TplVars, Context));
-to_render_result(#m{model=Model} = M, TplVars, Context) ->
+to_render_result(#m{model = Model} = M, TplVars, Context) ->
     to_render_result(Model:m_value(M, Context), TplVars, Context);
-to_render_result(#m_search_result{result=#search_result{result=Result}}, _TplVars, _Context) ->
+to_render_result(#m_search_result{result = #search_result{result = Result}}, _TplVars, _Context) ->
     io_lib:format("~p", [Result]);
-to_render_result(#rsc_list{list=L}, _TplVars, _Context) ->
+to_render_result(#rsc_list{list = L}, _TplVars, _Context) ->
     io_lib:format("~p", [L]);
 to_render_result({trans, _} = Trans, TplVars, Context) ->
     z_trans:lookup_fallback(Trans, set_context_vars(TplVars, Context));
@@ -498,16 +500,16 @@ trace_compile(Module, Filename, Options, Context) ->
     SrcPos = proplists:get_value(trace_position, Options),
     z_notifier:notify(
         #debug{
-            what=template,
-            arg={compile, Filename, SrcPos, Module}
+            what = template,
+            arg = {compile, Filename, SrcPos, Module}
         }, Context),
     case SrcPos of
         {File, Line, _Col} ->
             lager:debug("[~p] Compiling \"~s\" (called from \"~s:~p\")",
-                        [z_context:site(Context), Filename, File, Line]);
+                [z_context:site(Context), Filename, File, Line]);
         undefined ->
             lager:debug("[~p] Compiling \"~s\"",
-                        [z_context:site(Context), Filename])
+                [z_context:site(Context), Filename])
     end.
 
 %% @doc Called when a template is rendered (could be from an include)
@@ -519,19 +521,19 @@ trace_render(Filename, Options, Context) ->
             case SrcPos of
                 {File, Line, _Col} ->
                     lager:info("[~p] Include \"~s\" by \"~s:~p\"",
-                               [z_context:site(Context), Filename, File, Line]),
+                        [z_context:site(Context), Filename, File, Line]),
                     {ok,
-                        [ <<"\n<!-- START ">>, relpath(Filename),
-                          <<" by ">>, relpath(File), $:, integer_to_binary(Line),
-                          <<" -->\n">> ],
-                        [ <<"\n<!-- END ">>, relpath(Filename),  <<" -->\n">> ]
+                        [<<"\n<!-- START ">>, relpath(Filename),
+                            <<" by ">>, relpath(File), $:, integer_to_binary(Line),
+                            <<" -->\n">>],
+                        [<<"\n<!-- END ">>, relpath(Filename), <<" -->\n">>]
                     };
                 undefined ->
                     lager:info("[~p] Render \"~s\"",
-                               [z_context:site(Context), Filename]),
+                        [z_context:site(Context), Filename]),
                     {ok,
-                        [ <<"\n<!-- START ">>, relpath(Filename), <<" -->\n">> ],
-                        [ <<"\n<!-- END ">>, relpath(Filename),  <<" -->\n">> ]
+                        [<<"\n<!-- START ">>, relpath(Filename), <<" -->\n">>],
+                        [<<"\n<!-- END ">>, relpath(Filename), <<" -->\n">>]
                     }
             end;
         false ->
@@ -544,12 +546,12 @@ trace_block({File, Line, _Col}, Name, Module, Context) ->
     case z_convert:to_bool(m_config:get_value(mod_development, debug_blocks, Context)) of
         true ->
             lager:info("[~p] Call block \"~p\" in \"~s\" by \"~s:~p\"",
-                       [z_context:site(Context), Name, Module:filename(), File, Line]),
+                [z_context:site(Context), Name, Module:filename(), File, Line]),
             {ok,
-                [ <<"\n<!-- BLOCK ">>, atom_to_binary(Name, 'utf8'), " @ ", relpath(Module:filename()),
-                  <<" by ">>, relpath(File), $:, integer_to_binary(Line),
-                  <<" -->\n">> ],
-                [ <<"\n<!-- ENDBLOCK ">>, atom_to_binary(Name, 'utf8'),  <<" -->\n">> ]
+                [<<"\n<!-- BLOCK ">>, atom_to_binary(Name, 'utf8'), " @ ", relpath(Module:filename()),
+                    <<" by ">>, relpath(File), $:, integer_to_binary(Line),
+                    <<" -->\n">>],
+                [<<"\n<!-- ENDBLOCK ">>, atom_to_binary(Name, 'utf8'), <<" -->\n">>]
             };
         false ->
             ok

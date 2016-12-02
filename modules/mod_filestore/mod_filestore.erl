@@ -52,33 +52,33 @@
     delete_ready/5,
     download_stream/5,
     manage_schema/2
-    ]).
+]).
 
 -export([
     start_link/1,
     init/1
-    ]).
+]).
 
 
-observe_media_update_done(#media_update_done{action=insert, post_props=Props}, Context) ->
+observe_media_update_done(#media_update_done{action = insert, post_props = Props}, Context) ->
     queue_medium(Props, Context);
 observe_media_update_done(#media_update_done{}, _Context) ->
     ok.
 
-observe_filestore(#filestore{action=lookup, path=Path}, Context) ->
+observe_filestore(#filestore{action = lookup, path = Path}, Context) ->
     lookup(Path, Context);
-observe_filestore(#filestore{action=upload, path=Path, mime=undefined} = Upload, Context) ->
+observe_filestore(#filestore{action = upload, path = Path, mime = undefined} = Upload, Context) ->
     Mime = z_media_identify:guess_mime(Path),
-    observe_filestore(Upload#filestore{mime=Mime}, Context);
-observe_filestore(#filestore{action=upload, path=Path, mime=Mime}, Context) ->
-    maybe_queue_file(<<>>, Path, true, [{mime,Mime}], Context),
+    observe_filestore(Upload#filestore{mime = Mime}, Context);
+observe_filestore(#filestore{action = upload, path = Path, mime = Mime}, Context) ->
+    maybe_queue_file(<<>>, Path, true, [{mime, Mime}], Context),
     ok;
-observe_filestore(#filestore{action=delete, path=Path}, Context) ->
+observe_filestore(#filestore{action = delete, path = Path}, Context) ->
     Count = m_filestore:mark_deleted(Path, Context),
     lager:debug("filestore: marked ~p entries as deleted for ~p", [Count, Path]),
     ok.
 
-observe_filestore_credentials_lookup(#filestore_credentials_lookup{path=Path}, Context) ->
+observe_filestore_credentials_lookup(#filestore_credentials_lookup{path = Path}, Context) ->
     S3Key = m_config:get_value(?MODULE, s3key, Context),
     S3Secret = m_config:get_value(?MODULE, s3secret, Context),
     S3Url = m_config:get_value(?MODULE, s3url, Context),
@@ -86,23 +86,26 @@ observe_filestore_credentials_lookup(#filestore_credentials_lookup{path=Path}, C
         true ->
             Url = make_url(S3Url, Path),
             {ok, #filestore_credentials{
-                    service= <<"s3">>,
-                    location=Url,
-                    credentials={S3Key,S3Secret}
+                service = <<"s3">>,
+                location = Url,
+                credentials = {S3Key, S3Secret}
             }};
         false ->
             undefined
     end.
 
-observe_filestore_credentials_revlookup(#filestore_credentials_revlookup{service= <<"s3">>, location=Location}, Context) ->
+observe_filestore_credentials_revlookup(
+    #filestore_credentials_revlookup{service = <<"s3">>, location = Location},
+    Context
+) ->
     S3Key = m_config:get_value(?MODULE, s3key, Context),
     S3Secret = m_config:get_value(?MODULE, s3secret, Context),
     case is_defined(S3Key) andalso is_defined(S3Secret) of
         true ->
             {ok, #filestore_credentials{
-                    service= <<"s3">>,
-                    location=Location,
-                    credentials={S3Key,S3Secret}
+                service = <<"s3">>,
+                location = Location,
+                credentials = {S3Key, S3Secret}
             }};
         false ->
             undefined
@@ -110,13 +113,13 @@ observe_filestore_credentials_revlookup(#filestore_credentials_revlookup{service
 
 observe_admin_menu(#admin_menu{}, Acc, Context) ->
     [
-     #menu_item{id=admin_filestore,
-                parent=admin_system,
-                label=?__("Cloud File Store", Context),
-                url={admin_filestore},
-                visiblecheck={acl, use, mod_config}}
+        #menu_item{id = admin_filestore,
+            parent = admin_system,
+            label = ?__("Cloud File Store", Context),
+            url = {admin_filestore},
+            visiblecheck = {acl, use, mod_config}}
 
-     |Acc].
+        | Acc].
 
 
 
@@ -174,29 +177,30 @@ load_cache(Props, Context) ->
     Location = proplists:get_value(location, Props),
     Size = proplists:get_value(size, Props),
     Id = proplists:get_value(id, Props),
-    case z_notifier:first(#filestore_credentials_revlookup{service=Service, location=Location}, Context) of
-        {ok, #filestore_credentials{service= <<"s3">>, location=Location1, credentials=Cred}} ->
+    case z_notifier:first(#filestore_credentials_revlookup{service = Service, location = Location}, Context) of
+        {ok, #filestore_credentials{service = <<"s3">>, location = Location1, credentials = Cred}} ->
             lager:debug("File store cache load of ~p", [Location]),
             Ctx = z_context:prune_for_async(Context),
             StreamFun = fun(CachePid) ->
-                            s3filez:stream(Cred,
-                                           Location1,
-                                           fun({error, enoent}) ->
-                                                    lager:error("File store remote file is gone ~p", [Location]),
-                                                    ok = m_filestore:mark_error(Id, enoent, Ctx),
-                                                    exit(normal);
-                                              ({error, _} = Error) ->
-                                                    % Abnormal exit when receiving an error.
-                                                    % This takes down the cache entry.
-                                                    lager:error("File store error ~p on cache load of ~p", [Error, Location]),
-                                                    exit(Error);
-                                              (T) when is_tuple(T) ->
-                                                    nop;
-                                              (B) when is_binary(B) ->
-                                                    filezcache:append_stream(CachePid, B);
-                                              (eof) ->
-                                                    filezcache:finish_stream(CachePid)
-                                           end)
+                            s3filez:stream(
+                                Cred,
+                                Location1,
+                                fun({error, enoent}) ->
+                                    lager:error("File store remote file is gone ~p", [Location]),
+                                    ok = m_filestore:mark_error(Id, enoent, Ctx),
+                                    exit(normal);
+                                    ({error, _} = Error) ->
+                                        % Abnormal exit when receiving an error.
+                                        % This takes down the cache entry.
+                                        lager:error("File store error ~p on cache load of ~p", [Error, Location]),
+                                        exit(Error);
+                                    (T) when is_tuple(T) ->
+                                        nop;
+                                    (B) when is_binary(B) ->
+                                        filezcache:append_stream(CachePid, B);
+                                    (eof) ->
+                                        filezcache:finish_stream(CachePid)
+                                end)
                         end,
             case filezcache:insert_stream(Location, Size, StreamFun, [monitor]) of
                 {ok, Pid} ->
@@ -222,14 +226,14 @@ task_queue_all(Offset, Max, Context) when Offset =< Max ->
                     order by id asc
                     limit $1
                     offset $2",
-                    [?BATCH_SIZE, Offset],
-                    Context),
+        [?BATCH_SIZE, Offset],
+        Context),
     lager:info("Ensuring ~p files are queued for remote upload.", [length(Media)]),
     lists:foreach(fun(M) ->
-                    queue_medium(M, Context)
-                  end,
-                  Media),
-    {delay, 0, [Offset+?BATCH_SIZE, Max]};
+        queue_medium(M, Context)
+    end,
+        Media),
+    {delay, 0, [Offset + ?BATCH_SIZE, Max]};
 task_queue_all(_Offset, _Max, _Context) ->
     ok.
 
@@ -256,7 +260,6 @@ maybe_queue_file(Prefix, Filename, true, Props, Context) ->
     end.
 
 
-
 %%% ------------------------------------------------------------------------------------
 %%% Supervisor callbacks
 %%% ------------------------------------------------------------------------------------
@@ -265,11 +268,11 @@ start_link(Args) ->
     supervisor:start_link(?MODULE, Args).
 
 init(_Args) ->
-    {ok,{{simple_one_for_one, 20, 10},
-         [
-          {undefined, {filestore_uploader, start_link, []},
-           transient, brutal_kill, worker, [filestore_uploader]}
-         ]}}.
+    {ok, {{simple_one_for_one, 20, 10},
+        [
+            {undefined, {filestore_uploader, start_link, []},
+                transient, brutal_kill, worker, [filestore_uploader]}
+        ]}}.
 
 
 %%% ------------------------------------------------------------------------------------
@@ -277,7 +280,7 @@ init(_Args) ->
 %%% ------------------------------------------------------------------------------------
 
 start_uploaders(Pid, Rs, Context) ->
-    [ start_uploader(Pid, R, Context) || R <- Rs ].
+    [start_uploader(Pid, R, Context) || R <- Rs].
 
 start_uploader(Pid, R, Context) ->
     {id, Id} = proplists:lookup(id, R),
@@ -286,15 +289,15 @@ start_uploader(Pid, R, Context) ->
     supervisor:start_child(Pid, [Id, Path, Props, Context]).
 
 start_deleters(Rs, Context) ->
-    [ start_deleter(R, Context) || R <- Rs ].
+    [start_deleter(R, Context) || R <- Rs].
 
 start_deleter(R, Context) ->
     {id, Id} = proplists:lookup(id, R),
     {path, Path} = proplists:lookup(path, R),
     {service, Service} = proplists:lookup(service, R),
     {location, Location} = proplists:lookup(location, R),
-    case z_notifier:first(#filestore_credentials_revlookup{service=Service, location=Location}, Context) of
-        {ok, #filestore_credentials{service= <<"s3">>, location=Location1, credentials=Cred}} ->
+    case z_notifier:first(#filestore_credentials_revlookup{service = Service, location = Location}, Context) of
+        {ok, #filestore_credentials{service = <<"s3">>, location = Location1, credentials = Cred}} ->
             lager:debug("Queue delete for ~p", [Location1]),
             ContextAsync = z_context:prune_for_async(Context),
             _ = s3filez:queue_delete_id({?MODULE, delete, Id}, Cred, Location1, {?MODULE, delete_ready, [Id, Path, ContextAsync]});
@@ -316,15 +319,15 @@ delete_ready(_Id, Path, _Context, _Ref, {error, _} = Error) ->
 
 
 start_downloaders(Rs, Context) ->
-    [ start_downloader(R, Context) || R <- Rs ].
+    [start_downloader(R, Context) || R <- Rs].
 
 start_downloader(R, Context) ->
     {id, Id} = proplists:lookup(id, R),
     {path, Path} = proplists:lookup(path, R),
     {service, Service} = proplists:lookup(service, R),
     {location, Location} = proplists:lookup(location, R),
-    case z_notifier:first(#filestore_credentials_revlookup{service=Service, location=Location}, Context) of
-        {ok, #filestore_credentials{service= <<"s3">>, location=Location1, credentials=Cred}} ->
+    case z_notifier:first(#filestore_credentials_revlookup{service = Service, location = Location}, Context) of
+        {ok, #filestore_credentials{service = <<"s3">>, location = Location1, credentials = Cred}} ->
             LocalPath = z_path:files_subdir(Path, Context),
             ok = filelib:ensure_dir(LocalPath),
             lager:debug("Queue move to local for ~p", [Location1]),
@@ -338,7 +341,7 @@ download_stream(_Id, _Path, LocalPath, _Context, {content_type, _}) ->
     lager:debug("Download remote file ~p started", [LocalPath]),
     file:delete(temp_path(LocalPath));
 download_stream(_Id, _Path, LocalPath, _Context, Data) when is_binary(Data) ->
-    file:write_file(temp_path(LocalPath), Data, [append,raw,binary]);
+    file:write_file(temp_path(LocalPath), Data, [append, raw, binary]);
 download_stream(Id, Path, LocalPath, Context, eof) ->
     lager:debug("Download remote file ~p ready", [LocalPath]),
     ok = file:rename(temp_path(LocalPath), LocalPath),

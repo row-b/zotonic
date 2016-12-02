@@ -30,8 +30,8 @@ start(DoLogCallback) when is_function(DoLogCallback) ->
     dbg:start(),
     dbg:tracer(process, {fun tracefun/2, {DoLogCallback, 0}}),
     lists:foreach(fun({F, A}) ->
-                          dbg:tp(?TRACED_MOD, F, A, ?TRACE_OPTS)
-                  end, traced_funs()),
+        dbg:tp(?TRACED_MOD, F, A, ?TRACE_OPTS)
+    end, traced_funs()),
     dbg:p(all, c).
 
 stop() ->
@@ -42,8 +42,8 @@ get_tracer() ->
 
 traced_funs() ->
     [{notify, 2}, {notify1, 2},
-     {first, 2}, {map, 2},
-     {foldl, 3}, {foldr, 3}].
+        {first, 2}, {map, 2},
+        {foldl, 3}, {foldr, 3}].
 
 ignored_events() ->
     [debug, tick_1s].
@@ -51,14 +51,14 @@ ignored_events() ->
 %% @doc Default callback function for tracefun/2
 do_log({I, Pid, Fun, SessionPid, PagePid, ReqId, Msg}) ->
     io:format("(~p): ~p ~p :: ~p ~p ~p - ~p\n",
-              [I, Pid, Fun, SessionPid, PagePid, ReqId, Msg]).
+        [I, Pid, Fun, SessionPid, PagePid, ReqId, Msg]).
 
 %% %doc Callback function for dbg
 tracefun({trace, Pid, call, {?TRACED_MOD, Fun, Args}}, {DoLog, I}) ->
     {Msg, Context} =
         case Args of
-            [Msg_, Context_] -> {Msg_, Context_};
-            [Msg_, _Acc_, Context_] -> {Msg_, Context_}
+            [Msg1, Context_] -> {Msg1, Context_};
+            [Msg1, _Acc, Context_] -> {Msg1, Context_}
         end,
     ReqId = undefined,
     % ReqData = z_context:get_reqdata(Context),
@@ -66,17 +66,20 @@ tracefun({trace, Pid, call, {?TRACED_MOD, Fun, Args}}, {DoLog, I}) ->
     %             undefined -> undefined;
     %                     _ -> (ReqData#wm_reqdata.log_data)#wm_log_data.req_id
     %         end,
-    EventType = if  is_tuple(Msg) -> element(1, Msg);
-                    is_atom(Msg) -> Msg
-                end,
+    EventType = case Msg of
+        Msg when is_tuple(Msg) ->
+            element(1, Msg);
+        Msg when is_atom(Msg) ->
+            Msg
+    end,
     case lists:member(EventType, ignored_events()) of
         true ->
             {DoLog, I};
         false ->
             {SessionPid, PagePid, ReqId} =
                 {Context#context.session_pid,
-                 Context#context.page_pid,
-                 ReqId},
+                    Context#context.page_pid,
+                    ReqId},
             DoLog({I, Pid, Fun, SessionPid, PagePid, ReqId, Msg}),
             {DoLog, I + 1}
     end;

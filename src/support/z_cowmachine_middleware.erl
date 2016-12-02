@@ -10,9 +10,9 @@
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
-%% 
+%%
 %%     http://www.apache.org/licenses/LICENSE-2.0
-%% 
+%%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,13 +31,14 @@
 %% @doc Call cowmachine to handle the request with the given controller. Prepare the
 %%      metadata for lager and set the relevant Context arguments.
 -spec execute(Req, Env) -> {ok, Req, Env} | {stop, Req}
-    when Req::cowboy_req:req(), Env::cowboy_middleware:env().
+    when Req :: cowboy_req:req(), Env :: cowboy_middleware:env().
 execute(Req, #{controller := Controller, controller_options := ControllerOpts} = Env) ->
     Context1 = z_context:set(ControllerOpts, maps:get(context, Env)),
     Context2 = z_context:set_controller_module(Controller, Context1),
     Context3 = z_context:set_reqdata(Req, Context2),
     Options = #{
-        on_welformed => fun(Ctx) -> z_context:lager_md(Ctx), z_context:ensure_qs(Ctx) end
+        on_welformed => fun(Ctx) -> z_context:lager_md(Ctx),
+            z_context:ensure_qs(Ctx) end
     },
     cowmachine:request(Controller, ControllerOpts, Req, Env, Options, Context3).
 

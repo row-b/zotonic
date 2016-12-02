@@ -10,7 +10,7 @@
 
 -export([
     ensure_file/4
-    ]).
+]).
 
 -define(SERVER, ?MODULE).
 
@@ -22,7 +22,7 @@ ensure_file(Path, Root, OptFilters, Context) ->
             case supervisor:start_child(?SERVER, [Path, Root, OptFilters, Context]) of
                 {ok, Pid} ->
                     lookup_file(Pid);
-                {error,{already_started, Pid}} ->
+                {error, {already_started, Pid}} ->
                     lookup_file(Pid)
             end
     end.
@@ -36,7 +36,7 @@ start_link() ->
 
 init([]) ->
     Element = {z_file_entry, {z_file_entry, start_link, []},
-               temporary, brutal_kill, worker, [z_file_entry]},
+        temporary, brutal_kill, worker, [z_file_entry]},
     Children = [Element],
     RestartStrategy = {simple_one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.

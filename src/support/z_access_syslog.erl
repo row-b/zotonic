@@ -76,10 +76,10 @@ log_access(_LogData) ->
 % @doc Initialize the logger.
 init(_Pid, [[Name, Opts, Facility], Priority]) ->
     {ok, Log} = syslog:open(Name, Opts, Facility),
-    {ok, ?FLUSH_INTERVAL, #state{priority=Priority, format=alog, log=Log}}.
+    {ok, ?FLUSH_INTERVAL, #state{priority = Priority, format = alog, log = Log}}.
 
 % @doc Log one entry
-handle_value(_Pid, _Count, MD, #state{log=Log, priority=Priority, format=Format}) ->
+handle_value(_Pid, _Count, MD, #state{log = Log, priority = Priority, format = Format}) ->
     Msg = format(Format, MD),
     syslog:log(Log, Priority, Msg).
 
@@ -121,24 +121,24 @@ format(alog, MD) ->
         z_convert:to_binary(User),
         z_convert:to_binary(Method),
         Path,
-        {1,1},
+        {1, 1},
         z_convert:to_binary(Status),
         z_convert:to_binary(Size),
         Referer,
         UserAgent).
 
 
-fmt_time({_MegaSecs, _Secs, _MicroSecs}=Ts) ->
+fmt_time({_MegaSecs, _Secs, _MicroSecs} = Ts) ->
     fmt_time(calendar:now_to_universal_time(Ts));
 fmt_time({{Year, Month, Date}, {Hour, Min, Sec}}) ->
     io_lib:format("[~2..0w/~s/~4..0w:~2..0w:~2..0w:~2..0w ~s]",
         [Date, month(Month), Year, Hour, Min, Sec, "+0000"]).
 
-fmt_alog(Time, ReqId, Ip, User, Method, Path, {VM,Vm}, Status,  Length, Referrer, UserAgent) ->
+fmt_alog(Time, ReqId, Ip, User, Method, Path, {VM, Vm}, Status, Length, Referrer, UserAgent) ->
     [fmt_ip(Ip), " - ", sanitize(User), $\s, Time, $\s, $", sanitize(Method), " ", sanitize(Path),
-     " HTTP/", z_convert:to_binary(VM), $., z_convert:to_binary(Vm), $",$\s,
-     Status, $\s, Length, $\s,$", sanitize(Referrer),
-     $",$\s,$", sanitize(UserAgent), $",$\s, z_convert:to_binary(ReqId)].
+        " HTTP/", z_convert:to_binary(VM), $., z_convert:to_binary(Vm), $", $\s,
+        Status, $\s, Length, $\s, $", sanitize(Referrer),
+        $", $\s, $", sanitize(UserAgent), $", $\s, z_convert:to_binary(ReqId)].
 
 fmt_ip(IP) when is_tuple(IP) ->
     inet_parse:ntoa(IP);
@@ -155,7 +155,7 @@ sanitize(S) ->
 sanitize(<<>>, Acc) ->
     Acc;
 sanitize(<<C, Rest/binary>>, Acc) when C < 32 ->
-    sanitize(Rest, <<Acc/binary, (C+$A), $^>>);
+    sanitize(Rest, <<Acc/binary, (C + $A), $^>>);
 sanitize(<<C, Rest/binary>>, Acc) ->
     sanitize(Rest, <<Acc/binary, C>>).
 

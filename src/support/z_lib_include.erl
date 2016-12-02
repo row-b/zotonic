@@ -45,12 +45,12 @@ tag(Files, Args, Context) ->
         Empty when Empty == []; Empty == <<>>; Empty == undefined ->
             tag1(Files, Args, Context);
         _Other ->
-            lists:foldr(fun(F, [Css,Js]) ->
-                            [C,J] = tag1([F], Args, Context),
-                            [[C|Css], [J|Js]]
-                         end,
-                         [[],[]],
-                         Files)
+            lists:foldr(fun(F, [Css, Js]) ->
+                [C, J] = tag1([F], Args, Context),
+                [[C | Css], [J | Js]]
+            end,
+                [[], []],
+                Files)
     end.
 
 %% @doc Generate a url with the given files.
@@ -71,10 +71,10 @@ url_for(F, P, Ext, Args, Context) ->
 
 tag1(Files, Args, Context) ->
     F = fun() ->
-            {Css, CssPath, Js, JsPath} = collapsed_paths(Files),
-            NoLangContext = z_context:set_language(undefined, Context),
-            [link_element(Css, CssPath, Args, NoLangContext),
-             script_element(Js, JsPath, Args, NoLangContext)]
+        {Css, CssPath, Js, JsPath} = collapsed_paths(Files),
+        NoLangContext = z_context:set_language(undefined, Context),
+        [link_element(Css, CssPath, Args, NoLangContext),
+            script_element(Js, JsPath, Args, NoLangContext)]
     end,
     case z_module_manager:active(mod_development, Context) of
         false ->
@@ -88,13 +88,17 @@ link_element(_Css, [], _Args, _Context) ->
     [];
 link_element(Css, CssPath, Args, Context) ->
     TitleAttr = case proplists:get_value(title, Args, undefined) of
-           undefined -> [];
-           TitleValue -> [<<" title=\"">>, TitleValue, $"]
-           end,
+        undefined -> [];
+        TitleValue -> [<<" title=\"">>, TitleValue, $"]
+    end,
     MediaAttr = [<<" media=\"">>, proplists:get_value(media, Args, "all"), $"],
     RelAttr = [<<" rel=\"">>, proplists:get_value(rel, Args, "stylesheet"), $"],
     CssUrl = z_dispatcher:url_for(lib, url_for_args(Css, CssPath, <<".css">>, Args, Context), Context),
-    iolist_to_binary([<<"<link href=\"">>, CssUrl, <<"\" type=\"text/css\"">>, MediaAttr, TitleAttr, RelAttr, $/, $>]).
+    iolist_to_binary([
+        <<"<link href=\"">>, CssUrl, <<"\" type=\"text/css\"">>,
+        MediaAttr, TitleAttr, RelAttr,
+        $/, $>
+    ]).
 
 script_element(_Js, [], _Args, _Context) ->
     [];
@@ -108,14 +112,14 @@ url_for_args(Files, JoinedPath, Extension, Args, Context) ->
         true -> [absolute_url]
     end,
     Checksum = checksum(Files, Context),
-    <<$/,Path/binary>> = iolist_to_binary(JoinedPath),
+    <<$/, Path/binary>> = iolist_to_binary(JoinedPath),
     [{star, [Path, ?SEP, integer_to_binary(Checksum), Extension]} | AbsUrlArg].
 
 %% @doc Make the collapsed paths for the js and the css files.
 collapsed_paths(Files) ->
-    {Css, Js} = split_css_js([ z_convert:to_binary(F) || F <- Files]),
+    {Css, Js} = split_css_js([z_convert:to_binary(F) || F <- Files]),
     CssSort = collapse_dirs(Css),
-    JsSort= collapse_dirs(Js),
+    JsSort = collapse_dirs(Js),
     CssPath = z_utils:combine(?SEP, CssSort),
     JsPath = z_utils:combine(?SEP, JsSort),
     {Css, CssPath, Js, JsPath}.
@@ -134,17 +138,18 @@ add_extension([File]) ->
     [File];
 add_extension([TimestampExt | Files]) ->
     Extension = filename:extension(TimestampExt),
-    lists:foldl(fun(F, Acc) -> [add_extension_1(F,Extension)|Acc] end, [], Files).
+    lists:foldl(fun(F, Acc) ->
+        [add_extension1(F, Extension) | Acc] end, [], Files).
 
-add_extension_1(F, Ext) when is_binary(F) ->
+add_extension1(F, Ext) when is_binary(F) ->
     Ext1 = z_convert:to_binary(Ext),
     <<F/binary, Ext1/binary>>;
-add_extension_1(F, Ext) when is_list(F) ->
+add_extension1(F, Ext) when is_list(F) ->
     F ++ Ext.
 
 uncollapse_dirs([]) ->
     [];
-uncollapse_dirs([File|Rest]) ->
+uncollapse_dirs([File | Rest]) ->
     case filename:dirname(File) of
         [X] when X =:= $. orelse X =:= $/ ->
             uncollapse_dirs(Rest, [], [File]);
@@ -157,57 +162,62 @@ uncollapse_dirs([File|Rest]) ->
 uncollapse_dirs([], _Dirname, Acc) ->
     Acc;
 uncollapse_dirs([Rest], _Dirname, Acc) ->
-    uncollapse_dirs([], [], [Rest|Acc]);
-uncollapse_dirs([[$/|_]=File|Rest], _Dirname, Acc) ->
-    uncollapse_dirs(Rest, filename:dirname(File), [File|Acc]);
-uncollapse_dirs([<<$/,_/binary>>=File|Rest], _Dirname, Acc) ->
-    uncollapse_dirs(Rest, filename:dirname(File), [File|Acc]);
-uncollapse_dirs([File|Rest], Dirname, Acc) when is_list(File) ->
+    uncollapse_dirs([], [], [Rest | Acc]);
+uncollapse_dirs([[$/ | _] = File | Rest], _Dirname, Acc) ->
+    uncollapse_dirs(Rest, filename:dirname(File), [File | Acc]);
+uncollapse_dirs([<<$/, _/binary>> = File | Rest], _Dirname, Acc) ->
+    uncollapse_dirs(Rest, filename:dirname(File), [File | Acc]);
+uncollapse_dirs([File | Rest], Dirname, Acc) when is_list(File) ->
     File1 = Dirname ++ [$/ | File],
-    uncollapse_dirs(Rest, filename:dirname(File1), [File1|Acc]);
-uncollapse_dirs([File|Rest], Dirname, Acc) when is_binary(File) ->
+    uncollapse_dirs(Rest, filename:dirname(File1), [File1 | Acc]);
+uncollapse_dirs([File | Rest], Dirname, Acc) when is_binary(File) ->
     File1 = <<Dirname/binary, $/, File/binary>>,
-    uncollapse_dirs(Rest, filename:dirname(File1), [File1|Acc]).
+    uncollapse_dirs(Rest, filename:dirname(File1), [File1 | Acc]).
 
 
-%% @doc Try to remove directory names that are the same as the directory of the previous file in the list.
+%% @doc Try to remove directory names that are the same as the directory of the
+%% previous file in the list.
 collapse_dirs([]) ->
     [];
-collapse_dirs([File|Files]) ->
-    collapse_dirs(Files, binary:split(dirname(File), <<"/">>, [global]), [ensure_abspath(filename:rootname(File))]).
+collapse_dirs([File | Files]) ->
+    collapse_dirs(
+        Files,
+        binary:split(dirname(File), <<"/">>, [global]),
+        [ensure_abspath(filename:rootname(File))]
+    ).
 
-    collapse_dirs([], _PrevTk, Acc) ->
-        lists:reverse(Acc);
-    collapse_dirs([File|Files], PrevTk, Acc) ->
-        FileTk = binary:split(dirname(File), <<"/">>, [global]),
-        case drop_prefix(PrevTk, FileTk) of
-            {[], []} ->
-                % File is in the same directory
-                collapse_dirs(Files, FileTk, [filename:rootname(filename:basename(File)) | Acc ]);
-            {[], B} ->
-                % File is in a subdirectory from A
-                RelFile = [ z_utils:combine($/, B), $/, filename:rootname(filename:basename(File))],
-                collapse_dirs(Files, FileTk, [RelFile | Acc]);
-            {_A, _B} ->
-                % File is in a (sub-)directory higher from the previous one, reset to top level
-                collapse_dirs(Files, FileTk, [ensure_abspath(filename:rootname(File)) | Acc ])
-        end.
+collapse_dirs([], _PrevTk, Acc) ->
+    lists:reverse(Acc);
+collapse_dirs([File | Files], PrevTk, Acc) ->
+    FileTk = binary:split(dirname(File), <<"/">>, [global]),
+    case drop_prefix(PrevTk, FileTk) of
+        {[], []} ->
+            % File is in the same directory
+            collapse_dirs(Files, FileTk, [filename:rootname(filename:basename(File)) | Acc]);
+        {[], B} ->
+            % File is in a subdirectory from A
+            RelFile = [z_utils:combine($/, B), $/, filename:rootname(filename:basename(File))],
+            collapse_dirs(Files, FileTk, [RelFile | Acc]);
+        {_A, _B} ->
+            % File is in a (sub-)directory higher from the previous one, reset to top level
+            collapse_dirs(Files, FileTk, [ensure_abspath(filename:rootname(File)) | Acc])
+    end.
 
-    drop_prefix([A|RestA], [A|RestB]) ->
-        drop_prefix(RestA, RestB);
-    drop_prefix(A, B) ->
-        {A, B}.
+drop_prefix([A | RestA], [A | RestB]) ->
+    drop_prefix(RestA, RestB);
+drop_prefix(A, B) ->
+    {A, B}.
 
-    dirname(F) ->
-        case filename:dirname(F) of
-            <<".">> -> [];
-            Dirname -> Dirname
-        end.
+dirname(F) ->
+    case filename:dirname(F) of
+        <<".">> -> [];
+        Dirname -> Dirname
+    end.
 
-    ensure_abspath(<<$/, _/binary>> = File) ->
-        File;
-    ensure_abspath(File) ->
-        <<$/, File/binary>>.
+ensure_abspath(<<$/, _/binary>> = File) ->
+    File;
+ensure_abspath(File) ->
+    <<$/, File/binary>>.
 
 
 %% @doc Calculate a checksum of the mod times of the list of files.
@@ -216,9 +226,9 @@ checksum(Files, Context) ->
 
 checksum([], State, _Context) ->
     fletcher_final(State);
-checksum([File|Files], State, Context) ->
+checksum([File | Files], State, Context) ->
     case z_module_indexer:find(lib, File, Context) of
-        {ok, #module_index{filepath=FilePath}} ->
+        {ok, #module_index{filepath = FilePath}} ->
             State1 = dt_checksum(last_modified(FilePath), State),
             checksum(Files, State1, Context);
         {error, enoent} ->
@@ -230,7 +240,7 @@ checksum([File|Files], State, Context) ->
 last_modified(FilePath) ->
     case z_filewatcher_mtime:mtime(FilePath) of
         {ok, MTime} -> MTime;
-        {error, notfound} -> {{0,0,0},{0,0,0}}
+        {error, notfound} -> {{0, 0, 0}, {0, 0, 0}}
     end.
 
 dt_checksum({{Year, Month, Day}, {Hour, Minute, Second}}, State) ->
@@ -242,20 +252,20 @@ fletcher_final({Sum1, Sum2}) ->
     (Sum2 bsl 16) bor Sum1.
 
 fletcher_sum(Val, {Sum1, Sum2}) ->
-    Sum1_1 = (Sum1 + Val) rem 16#FFFF,
-    {Sum1_1, (Sum2 + Sum1_1) rem 16#FFFF}.
+    Sum1a = (Sum1 + Val) rem 16#FFFF,
+    {Sum1a, (Sum2 + Sum1a) rem 16#FFFF}.
 
 %% @doc Split the list of files in js and css files, remove leading '/'
 split_css_js(Files) ->
     split_css_js(Files, [], []).
 
-    split_css_js([], CssAcc, JsAcc) ->
-        {lists:reverse(CssAcc), lists:reverse(JsAcc)};
-    split_css_js([<<$/,File/binary>>|Rest], CssAcc, JsAcc) ->
-        split_css_js([File|Rest], CssAcc, JsAcc);
-    split_css_js([File|Rest], CssAcc, JsAcc) ->
-        case filename:extension(File) of
-            <<".css">> -> split_css_js(Rest, [File|CssAcc], JsAcc);
-            <<".js">>  -> split_css_js(Rest, CssAcc, [File|JsAcc]);
-            _ -> split_css_js(Rest, CssAcc, JsAcc)
-        end.
+split_css_js([], CssAcc, JsAcc) ->
+    {lists:reverse(CssAcc), lists:reverse(JsAcc)};
+split_css_js([<<$/, File/binary>> | Rest], CssAcc, JsAcc) ->
+    split_css_js([File | Rest], CssAcc, JsAcc);
+split_css_js([File | Rest], CssAcc, JsAcc) ->
+    case filename:extension(File) of
+        <<".css">> -> split_css_js(Rest, [File | CssAcc], JsAcc);
+        <<".js">> -> split_css_js(Rest, CssAcc, [File | JsAcc]);
+        _ -> split_css_js(Rest, CssAcc, JsAcc)
+    end.

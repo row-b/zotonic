@@ -40,19 +40,19 @@
 -export([start_link/1]).
 
 %% Don't poll for new tagged items more often than every 10 seconds
--define(POLL_DELAY, 10*1000).
--define(RETRY_DELAY, 600*1000).
+-define(POLL_DELAY, 10 * 1000).
+-define(RETRY_DELAY, 600 * 1000).
 
 %% Max API calls per hour, Instagram limit is 500, leave those 1000 for other calls.
 -define(API_LIMIT, 4000).
 
 -record(state, {
-        site :: atom(),                             % Name of this site, for #context{}
-        is_subscribed = false :: boolean(),
-        last_poll = 0 :: pos_integer(),             % Last poll in seconds
-        tags = [] :: list(),                        % All subscribed tags
-        poll = [] :: list()                         % Tags to poll
-    }).
+    site :: atom(),                             % Name of this site, for #context{}
+    is_subscribed = false :: boolean(),
+    last_poll = 0 :: pos_integer(),             % Last poll in seconds
+    tags = [] :: list(),                        % All subscribed tags
+    poll = [] :: list()                         % Tags to poll
+}).
 
 -include("zotonic.hrl").
 
@@ -65,13 +65,13 @@
 %% @doc Return the instagram appid, secret and scope
 %% @spec get_config(Context) -> {AppId, Secret, Scope}
 get_config(Context) ->
-    { z_convert:to_list(m_config:get_value(mod_instagram, consumer_key, Context)),
-      z_convert:to_list(m_config:get_value(mod_instagram, consumer_secret, Context)),
-      z_convert:to_list(m_config:get_value(mod_instagram, scope, ?INSTAGRAM_SCOPE, Context))
+    {z_convert:to_list(m_config:get_value(mod_instagram, consumer_key, Context)),
+        z_convert:to_list(m_config:get_value(mod_instagram, consumer_secret, Context)),
+        z_convert:to_list(m_config:get_value(mod_instagram, scope, ?INSTAGRAM_SCOPE, Context))
     }.
 
 
-event(#submit{message=admin_instagram}, Context) ->
+event(#submit{message = admin_instagram}, Context) ->
     case z_acl:is_allowed(use, mod_admin_config, Context) of
         true ->
             save_settings(Context),
@@ -81,13 +81,16 @@ event(#submit{message=admin_instagram}, Context) ->
     end.
 
 save_settings(Context) ->
-    lists:foreach(fun ({Key, Value}) ->
-                        case is_setting(Key) of
-                            true -> m_config:set_value(mod_instagram, binary_to_atom(Key, 'utf8'), Value, Context);
-                            false -> ok
-                        end
-                  end,
-                  z_context:get_q_all_noz(Context)),
+    lists:foreach(
+        fun({Key, Value}) ->
+            case is_setting(Key) of
+                true ->
+                    m_config:set_value(mod_instagram, binary_to_atom(Key, 'utf8'), Value, Context);
+                false -> ok
+            end
+        end,
+        z_context:get_q_all_noz(Context)
+    ),
     check_subscription(Context).
 
 is_setting(<<"consumer_key">>) -> true;
@@ -105,7 +108,7 @@ check_subscription(Context) ->
     gen_server:cast(name(Context), check_subscription).
 
 poll(Tag, Context) when is_binary(Tag) ->
-    poll(Tag, z_datetime:timestamp()-10, Context).
+    poll(Tag, z_datetime:timestamp() - 10, Context).
 
 poll(Tag, Time, Context) when is_binary(Tag) ->
     gen_server:cast(name(Context), {poll, Time, Tag}).
@@ -138,10 +141,10 @@ init(Args) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
+    ]),
     timer:send_after(?POLL_DELAY, ensure_subscribed),
     timer:send_after(?POLL_DELAY, poll),
-    {ok, #state{ site=Site }}.
+    {ok, #state{site = Site}}.
 
 handle_call(Message, _From, State) ->
     {stop, {unknown_call, Message}, State}.
@@ -150,15 +153,15 @@ handle_cast(check_subscription, State) ->
     State1 = handle_check_subscription(State),
     {noreply, State1};
 
-handle_cast({poll, Time, Tag}, #state{poll=Poll, tags=ImportTags} = State) ->
+handle_cast({poll, Time, Tag}, #state{poll = Poll, tags = ImportTags} = State) ->
     case lists:member(Tag, ImportTags) of
         true ->
             lager:debug("[instagram] received poll for subscribed tag ~p", [Tag]),
             Poll1 = case lists:keymember(Tag, 1, Poll) of
-                        false -> [{Tag,Time}|Poll];
-                        true -> Poll
-                    end,
-            State1 = maybe_poll(State#state{poll=Poll1}),
+                false -> [{Tag, Time} | Poll];
+                true -> Poll
+            end,
+            State1 = maybe_poll(State#state{poll = Poll1}),
             {noreply, State1};
         false ->
             lager:info("[instagram] dropped poll for unsubscribed tag ~p", [Tag]),
@@ -206,11 +209,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %%====================================================================
 
-maybe_poll(#state{is_subscribed=true, poll=Poll} = State) when Poll =/= [] ->
+maybe_poll(#state{is_subscribed = true, poll = Poll} = State) when Poll =/= [] ->
     case State#state.last_poll =< z_datetime:timestamp() - (?POLL_DELAY div 1000) of
         true ->
             Poll1 = instagram_import:poll(Poll, z_context:new(State#state.site)),
-            State#state{last_poll=z_datetime:timestamp(), poll=Poll1};
+            State#state{last_poll = z_datetime:timestamp(), poll = Poll1};
         false ->
             State
     end;
@@ -218,7 +221,7 @@ maybe_poll(State) ->
     State.
 
 
-handle_check_subscription(#state{site=Site} = State) ->
+handle_check_subscription(#state{site = Site} = State) ->
     Context = z_context:new(Site),
     Follow = get_follow(Context),
     Subs = get_subscription(Context),
@@ -227,40 +230,40 @@ handle_check_subscription(#state{site=Site} = State) ->
 handle_check_subscription_1(Tags, {ok, Subs}, Context, State) ->
     Tags1 = lists:usort(Tags),
     sync_subscription(Tags1, Subs, Context),
-    State#state{is_subscribed=true, tags=Tags1};
+    State#state{is_subscribed = true, tags = Tags1};
 handle_check_subscription_1(_Follow, _Subs, _Context, State) ->
-    State#state{is_subscribed=false}.
+    State#state{is_subscribed = false}.
 
 %% TODO: stop on API error (esp. access token error)
 sync_subscription(Tags, Subs, Context) ->
     lager:info("[instagram] subscribe to tags ~p", [Tags]),
-    SubTags = [ T || {T,_} <- Subs ],
+    SubTags = [T || {T, _} <- Subs],
     New = Tags -- SubTags,
     Del = SubTags -- Tags,
     lists:foreach(fun(T) ->
-                    {T, SubId} = proplists:lookup(T, Subs),
-                    _ = instagram_api:unsubscribe(SubId, Context)
-                  end,
-                  Del),
+        {T, SubId} = proplists:lookup(T, Subs),
+        _ = instagram_api:unsubscribe(SubId, Context)
+    end,
+        Del),
     lists:foreach(fun(T) ->
-                    _ = instagram_api:subscribe_tag(T, Context)
-                  end,
-                  New).
+        _ = instagram_api:subscribe_tag(T, Context)
+    end,
+        New).
 
 get_subscription(Context) ->
     case instagram_api:subscriptions(Context) of
         {ok, Subs} ->
             Tags = lists:flatten(
-                        lists:map(
-                            fun(Sub) ->
-                                case proplists:get_value(object, Sub) of
-                                    <<"tag">> ->
-                                        {proplists:get_value(object_id, Sub),proplists:get_value(id, Sub)};
-                                    _ ->
-                                        []
-                                end
-                            end,
-                            Subs)),
+                lists:map(
+                    fun(Sub) ->
+                        case proplists:get_value(object, Sub) of
+                            <<"tag">> ->
+                                {proplists:get_value(object_id, Sub), proplists:get_value(id, Sub)};
+                            _ ->
+                                []
+                        end
+                    end,
+                    Subs)),
             {ok, Tags};
         {error, _} = Error ->
             Error
@@ -280,8 +283,8 @@ tags(<<>>) ->
     [];
 tags(B) ->
     Bs = re:split(B, <<"[\t\n\r\f, ]">>),
-    Bs1 = [ nohash(z_string:trim(F)) || F <- Bs ],
-    [ z_string:to_lower(T) || T <- Bs1, T =/= <<>> ].
+    Bs1 = [nohash(z_string:trim(F)) || F <- Bs],
+    [z_string:to_lower(T) || T <- Bs1, T =/= <<>>].
 
 nohash(<<$#, Tag/binary>>) -> Tag;
 nohash(Tag) -> Tag.

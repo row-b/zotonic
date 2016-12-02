@@ -22,28 +22,28 @@
 
 %% interface functions
 -export([
-         c/1,
+    c/1,
 
-         n/2,
-         n1/2,
-         m/0,
-         m/1,
-         compile/0,
-         compile/1,
-         flush/0,
-         flush/1,
-         restart/0,
-         restart/1,
+    n/2,
+    n1/2,
+    m/0,
+    m/1,
+    compile/0,
+    compile/1,
+    flush/0,
+    flush/1,
+    restart/0,
+    restart/1,
 
-         ld/0,
-         ld/1,
+    ld/0,
+    ld/1,
 
-         shell_stopsite/1,
-         shell_startsite/1,
-         shell_restartsite/1,
+    shell_stopsite/1,
+    shell_startsite/1,
+    shell_restartsite/1,
 
-         debug_msg/3
-        ]).
+    debug_msg/3
+]).
 
 -include("zotonic.hrl").
 
@@ -85,15 +85,15 @@ compile(Options) ->
 
 %% @doc Reset all caches, reload the dispatch rules and rescan all modules.
 flush() ->
-    [ flush(C) || C <- z_sites_manager:get_site_contexts() ],
+    [flush(C) || C <- z_sites_manager:get_site_contexts()],
     z_sites_dispatcher:update_dispatchinfo().
 
 flush(Site) when is_atom(Site) ->
     flush(c(Site));
 flush(Context) ->
-   	z_depcache:flush(Context),
-   	z_dispatcher:reload(Context),
-   	n(module_ready, Context).
+    z_depcache:flush(Context),
+    z_dispatcher:reload(Context),
+    n(module_ready, Context).
 
 %% @doc Full restart of Zotonic
 restart() ->

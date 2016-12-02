@@ -31,14 +31,14 @@
 
 -include_lib("zotonic.hrl").
 
-event(#postback_notify{message= <<"feedback">>, trigger= <<"dialog-merge-find">>, target=TargetId}, Context) ->
+event(#postback_notify{message = <<"feedback">>, trigger = <<"dialog-merge-find">>, target = TargetId}, Context) ->
     % Find pages matching the search criteria.
     Category = z_context:get_q(<<"find_category">>, Context, <<>>),
     Text = z_context:get_q(<<"find_text">>, Context),
     Cats = case Category of
-                <<>> -> [];
-                CatId -> [{z_convert:to_integer(CatId)}]
-           end,
+        <<>> -> [];
+        CatId -> [{z_convert:to_integer(CatId)}]
+    end,
     Vars = [
         {id, m_rsc:rid(z_context:get_q(<<"id">>, Context), Context)},
         {cat, Cats},
@@ -49,17 +49,17 @@ event(#postback_notify{message= <<"feedback">>, trigger= <<"dialog-merge-find">>
         {update, [{target, TargetId}, {template, "_merge_find_results.tpl"} | Vars]}
     ], Context);
 
-event(#postback{message={merge_select, Args}}, Context) ->
+event(#postback{message = {merge_select, Args}}, Context) ->
     {id, Id} = proplists:lookup(id, Args),
     SelectId = m_rsc:rid(z_context:get_q(<<"select_id">>, Context), Context),
     case z_acl:rsc_editable(Id, Context) andalso z_acl:rsc_editable(SelectId, Context) of
         true ->
-            z_render:wire({redirect, [{dispatch, admin_merge_rsc_compare}, {id,Id}, {id2, SelectId}]}, Context);
+            z_render:wire({redirect, [{dispatch, admin_merge_rsc_compare}, {id, Id}, {id2, SelectId}]}, Context);
         false ->
             z_render:growl(?__("Sorry, you have no permission to edit this page.", Context), Context)
     end;
 
-event(#submit{message={merge, Args}}, Context) ->
+event(#submit{message = {merge, Args}}, Context) ->
     {winner_id, WinnerId} = proplists:lookup(winner_id, Args),
     {loser_id, LoserId} = proplists:lookup(loser_id, Args),
     MergeAction = z_context:get_q(<<"merge_action">>, Context),
@@ -67,11 +67,11 @@ event(#submit{message={merge, Args}}, Context) ->
     merge(WinnerId, LoserId, MergeAction, Context).
 
 merge(_WinnerId, _LoserId = 1, _MergeAction, Context) ->
-    z_render:wire({alert, [{text,?__("You cannot remove the admin user.", Context)}]}, Context);
-merge(WinnerId, _LoserId, <<"merge_only">>, Context)  ->
+    z_render:wire({alert, [{text, ?__("You cannot remove the admin user.", Context)}]}, Context);
+merge(WinnerId, _LoserId, <<"merge_only">>, Context) ->
     case z_acl:rsc_editable(WinnerId, Context) of
         false ->
-            z_render:wire({alert, [{text,?__("You do not have permission to edit the winner.", Context)}]}, Context);
+            z_render:wire({alert, [{text, ?__("You do not have permission to edit the winner.", Context)}]}, Context);
         true ->
             % ContextSpawn = z_context:prune_for_spawn(Context),
             % erlang:spawn(
@@ -81,21 +81,21 @@ merge(WinnerId, _LoserId, <<"merge_only">>, Context)  ->
             %             z_render:wire({redirect, [{dispatch, admin_edit_rsc}, {id, WinnerId}]}, ContextSpawn))
             %     end),
             z_render:wire([
-                    {growl, [{text, ?__("not implemented yet", Context)}]},
-                    {dialog_close, []}
-                ], Context)
+                {growl, [{text, ?__("not implemented yet", Context)}]},
+                {dialog_close, []}
+            ], Context)
     end;
 merge(WinnerId, LoserId, <<"merge_delete">>, Context) ->
     case {m_rsc:p_no_acl(LoserId, is_protected, Context),
-          z_acl:rsc_deletable(LoserId, Context),
-          z_acl:rsc_editable(WinnerId, Context)}
+        z_acl:rsc_deletable(LoserId, Context),
+        z_acl:rsc_editable(WinnerId, Context)}
     of
         {true, _, _} ->
-            z_render:wire({alert, [{text,?__("The loser is protected, unprotect the loser before merging.", Context)}]}, Context);
+            z_render:wire({alert, [{text, ?__("The loser is protected, unprotect the loser before merging.", Context)}]}, Context);
         {_, false, _} ->
-            z_render:wire({alert, [{text,?__("You do not have permission to delete the loser.", Context)}]}, Context);
+            z_render:wire({alert, [{text, ?__("You do not have permission to delete the loser.", Context)}]}, Context);
         {_, _, false} ->
-            z_render:wire({alert, [{text,?__("You do not have permission to edit the winner.", Context)}]}, Context);
+            z_render:wire({alert, [{text, ?__("You do not have permission to edit the winner.", Context)}]}, Context);
         {false, true, true} ->
             ContextSpawn = z_context:prune_for_spawn(Context),
             erlang:spawn(
@@ -105,9 +105,9 @@ merge(WinnerId, LoserId, <<"merge_delete">>, Context) ->
                         z_render:wire({redirect, [{dispatch, admin_edit_rsc}, {id, WinnerId}]}, ContextSpawn))
                 end),
             z_render:wire([
-                    {growl, [{text, ?__("Merging the two pages ...", Context)}]},
-                    {dialog_close, []}
-                ], Context)
+                {growl, [{text, ?__("Merging the two pages ...", Context)}]},
+                {dialog_close, []}
+            ], Context)
     end;
 merge(_WinnerId, _LoserId, _MergeAction, Context) ->
-    z_render:wire({alert, [{text,?__("No merge action specified.", Context)}]}, Context).
+    z_render:wire({alert, [{text, ?__("No merge action specified.", Context)}]}, Context).

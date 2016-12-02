@@ -32,7 +32,7 @@
 
 -include_lib("zotonic.hrl").
 
--record(state, { site :: atom(), site_props :: list() }).
+-record(state, {site :: atom(), site_props :: list()}).
 
 %%====================================================================
 %% API
@@ -51,7 +51,7 @@ start_link(SiteProps) when is_list(SiteProps) ->
 init(SiteProps) ->
     {site, Site} = proplists:lookup(site, SiteProps),
     self() ! install_check,
-    {ok, #state{ site = Site, site_props = SiteProps }}.
+    {ok, #state{site = Site, site_props = SiteProps}}.
 
 handle_call(Msg, _From, State) ->
     {reply, {unknown_call, Msg}, State}.
@@ -85,7 +85,7 @@ install_check(SiteProps) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
+    ]),
     Context = z_context:new(Site),
     case z_db:has_connection(Context) of
         true -> check_db_and_upgrade(Context, 1);
@@ -108,14 +108,14 @@ check_db_and_upgrade(Context, Tries) when Tries =< 2 ->
                 {true, _} ->
                     %% Normal startup, do upgrade / check
                     ok = z_db:transaction(
-                           fun(Context1) ->
-                                   C = z_db_pgsql:get_raw_connection(Context1),
-                                   Database = proplists:get_value(dbdatabase, DbOptions),
-                                   Schema = proplists:get_value(dbschema, DbOptions),
-                                   ok = upgrade(C, Database, Schema),
-                                   ok = sanity_check(C, Database, Schema)
-                           end,
-                           Context),
+                        fun(Context1) ->
+                            C = z_db_pgsql:get_raw_connection(Context1),
+                            Database = proplists:get_value(dbdatabase, DbOptions),
+                            Schema = proplists:get_value(dbschema, DbOptions),
+                            ok = upgrade(C, Database, Schema),
+                            ok = sanity_check(C, Database, Schema)
+                        end,
+                        Context),
                     ok
             end;
         {error, Reason} ->
@@ -128,12 +128,12 @@ check_db_and_upgrade(Context, Tries) when Tries =< 2 ->
                     case z_db:prepare_database(Context) of
                         ok ->
                             lager:info("Retrying install check after db creation."),
-                            check_db_and_upgrade(Context, Tries+1);
+                            check_db_and_upgrade(Context, Tries + 1);
                         {error, _PrepReason} = Error ->
                             lager:error("Could not create the database and schema."),
                             Error
                     end
-                end
+            end
     end;
 check_db_and_upgrade(Context, _Tries) ->
     lager:error("Could not connect to database and db creation failed"),
@@ -207,7 +207,7 @@ upgrade_config_schema(C, Database, Schema) ->
         <<"text">> ->
             ok;
         _ ->
-            {ok,[],[]} = epgsql:squery(C, "alter table config alter column value type text"),
+            {ok, [], []} = epgsql:squery(C, "alter table config alter column value type text"),
             ok
     end.
 
@@ -222,7 +222,10 @@ install_acl(C, Database, Schema) ->
             epgsql:squery(C, "drop table rsc_group cascade"),
             epgsql:squery(C, "drop table \"group\" cascade"),
             epgsql:squery(C, "delete from module where name='mod_admin_group'"),
-            {ok, 1} = epgsql:equery(C, "insert into module (name, is_active) values ($1, true)", ["mod_acl_adminonly"]),
+            {ok, 1} = epgsql:equery(
+                C,
+                "insert into module (name, is_active) values ($1, true)", ["mod_acl_adminonly"]
+            ),
             ok;
         false ->
             ok
@@ -232,13 +235,13 @@ install_acl(C, Database, Schema) ->
 install_persist(C, Database, Schema) ->
     case has_table(C, "persistent", Database, Schema) of
         false ->
-            {ok,[],[]} = epgsql:squery(C, "create table persistent ( "
-                                      "  id character varying(32) not null,"
-                                      "  props bytea,"
-                                      "  created timestamp with time zone NOT NULL DEFAULT now(),"
-                                      "  modified timestamp with time zone NOT NULL DEFAULT now(),"
-                                      "  CONSTRAINT persistent_pkey PRIMARY KEY (id)"
-                                      ")"),
+            {ok, [], []} = epgsql:squery(C, "create table persistent ( "
+            "  id character varying(32) not null,"
+            "  props bytea,"
+            "  created timestamp with time zone NOT NULL DEFAULT now(),"
+            "  modified timestamp with time zone NOT NULL DEFAULT now(),"
+            "  CONSTRAINT persistent_pkey PRIMARY KEY (id)"
+            ")"),
             ok;
         true ->
             ok
@@ -252,19 +255,19 @@ install_rsc_page_path_log(C, Database, Schema) ->
             ok;
         true ->
             case epgsql:equery(C,
-                             "select count(*)
-                              from information_schema.referential_constraints
-                              where constraint_catalog = $1
-                                and constraint_schema = $2
-                                and constraint_name = 'rsc_page_path_log_fkey'",
-                             [Database, Schema])
+                "select count(*)
+                 from information_schema.referential_constraints
+                 where constraint_catalog = $1
+                   and constraint_schema = $2
+                   and constraint_name = 'rsc_page_path_log_fkey'",
+                [Database, Schema])
             of
                 {ok, [_], [{1}]} ->
                     {ok, [], []} = epgsql:squery(C, "ALTER TABLE rsc_page_path_log "
-                                        "DROP CONSTRAINT rsc_page_path_log_fkey, "
-                                        "ADD CONSTRAINT fk_rsc_page_path_log_id FOREIGN KEY (id) "
-                                        "    REFERENCES rsc(id)"
-                                        "    ON UPDATE CASCADE ON DELETE CASCADE"),
+                    "DROP CONSTRAINT rsc_page_path_log_fkey, "
+                    "ADD CONSTRAINT fk_rsc_page_path_log_id FOREIGN KEY (id) "
+                    "    REFERENCES rsc(id)"
+                    "    ON UPDATE CASCADE ON DELETE CASCADE"),
                     epgsql:squery(C, z_install:rsc_page_path_log_fki()),
                     ok;
                 {ok, [_], [{0}]} ->
@@ -277,8 +280,8 @@ drop_visitor(C, Database, Schema) ->
     case has_table(C, "visitor_cookie", Database, Schema) of
         true ->
             {ok, _N} = epgsql:squery(C,
-                                    "insert into persistent (id,props) "
-                                    "select c.cookie, v.props from visitor_cookie c join visitor v on c.visitor_id = v.id"),
+                "insert into persistent (id,props) "
+                "select c.cookie, v.props from visitor_cookie c join visitor v on c.visitor_id = v.id"),
             epgsql:squery(C, "drop table visitor_cookie cascade"),
             epgsql:squery(C, "drop table visitor cascade"),
             ok;
@@ -297,7 +300,10 @@ extent_mime(C, Database, Schema) ->
                                        and column_name = $4", [Database, Schema, "medium", "mime"]),
     case Length < 128 of
         true ->
-            {ok, [], []} = epgsql:squery(C, "alter table medium alter column mime type character varying(128)");
+            {ok, [], []} = epgsql:squery(
+                C,
+                "alter table medium alter column mime type character varying(128)"
+            );
         false ->
             nop
     end,
@@ -310,8 +316,11 @@ install_identity_is_verified(C, Database, Schema) ->
             ok;
         false ->
             {ok, [], []} = epgsql:squery(C, "alter table identity "
-                                        "add column is_verified boolean not null default false"),
-            {ok, [], []} = epgsql:squery(C, "update identity set is_verified = true where key = 'username_pw'"),
+            "add column is_verified boolean not null default false"),
+            {ok, [], []} = epgsql:squery(
+                C,
+                "update identity set is_verified = true where key = 'username_pw'"
+            ),
             ok
     end.
 
@@ -321,8 +330,8 @@ install_identity_verify_key(C, Database, Schema) ->
             ok;
         false ->
             {ok, [], []} = epgsql:squery(C, "alter table identity "
-                                        "add column verify_key character varying(32), "
-                                        "add constraint identity_verify_key_unique UNIQUE (verify_key)"),
+            "add column verify_key character varying(32), "
+            "add constraint identity_verify_key_unique UNIQUE (verify_key)"),
             ok
     end.
 
@@ -332,7 +341,10 @@ install_task_due(C, Database, Schema) ->
         true ->
             ok;
         false ->
-            {ok, [], []} = epgsql:squery(C, "alter table pivot_task_queue add column due timestamp with time zone"),
+            {ok, [], []} = epgsql:squery(
+                C,
+                "alter table pivot_task_queue add column due timestamp with time zone"
+            ),
             ok
     end.
 
@@ -342,10 +354,23 @@ install_module_schema_version(C, Database, Schema) ->
         true ->
             ok;
         false ->
-            {ok, [], []} = epgsql:squery(C, "alter table module add column schema_version int "),
-            Predefined = ["mod_twitter", "mod_mailinglist", "mod_menu", "mod_survey", "mod_acl_simple_roles", "mod_contact"],
+            {ok, [], []} = epgsql:squery(
+                C,
+                "alter table module add column schema_version int "
+            ),
+            Predefined = [
+                "mod_twitter",
+                "mod_mailinglist",
+                "mod_menu",
+                "mod_survey",
+                "mod_acl_simple_roles",
+                "mod_contact"
+            ],
             [
-             {ok, _} = epgsql:equery(C, "UPDATE module SET schema_version=1 WHERE name=$1 AND is_active=true", [M]) || M <- Predefined
+                {ok, _} = epgsql:equery(
+                    C,
+                    "UPDATE module SET schema_version=1 WHERE name=$1 AND is_active=true", [M]
+                ) || M <- Predefined
             ],
             ok
     end.
@@ -356,7 +381,7 @@ install_geocode(C, Database, Schema) ->
         <<"character varying">> ->
             {ok, [], []} = epgsql:squery(C, "alter table rsc drop column pivot_geocode"),
             {ok, [], []} = epgsql:squery(C, "alter table rsc add column pivot_geocode bigint,"
-                                        " add column pivot_geocode_qhash bytea"),
+            " add column pivot_geocode_qhash bytea"),
             {ok, [], []} = epgsql:squery(C, "CREATE INDEX rsc_pivot_geocode_key ON rsc (pivot_geocode)"),
             ok;
         <<"bigint">> ->
@@ -374,33 +399,33 @@ install_geocode(C, Database, Schema) ->
 install_rsc_gone(C, Database, Schema) ->
     case has_table(C, "rsc_gone", Database, Schema) of
         false ->
-            install_rsc_gone_1(C);
+            install_rsc_gone1(C);
         true ->
             case has_column(C, "rsc_gone", "new_id", Database, Schema) of
                 false ->
                     _ = epgsql:squery(C, "DROP TABLE rsc_gone"),
-                    install_rsc_gone_1(C);
+                    install_rsc_gone1(C);
                 true ->
                     ok
             end
     end.
 
-install_rsc_gone_1(C) ->
-    {ok,[],[]} = epgsql:squery(C, "create table rsc_gone ( "
-                              "  id bigint not null,"
-                              "  new_id bigint,"
-                              "  new_uri character varying(250),"
-                              "  version int not null, "
-                              "  uri character varying(250),"
-                              "  name character varying(80),"
-                              "  page_path character varying(80),"
-                              "  is_authoritative boolean NOT NULL DEFAULT true,"
-                              "  creator_id bigint,"
-                              "  modifier_id bigint,"
-                              "  created timestamp with time zone NOT NULL DEFAULT now(),"
-                              "  modified timestamp with time zone NOT NULL DEFAULT now(),"
-                              "  CONSTRAINT rsc_gone_pkey PRIMARY KEY (id)"
-                              ")"),
+install_rsc_gone1(C) ->
+    {ok, [], []} = epgsql:squery(C, "create table rsc_gone ( "
+    "  id bigint not null,"
+    "  new_id bigint,"
+    "  new_uri character varying(250),"
+    "  version int not null, "
+    "  uri character varying(250),"
+    "  name character varying(80),"
+    "  page_path character varying(80),"
+    "  is_authoritative boolean NOT NULL DEFAULT true,"
+    "  creator_id bigint,"
+    "  modifier_id bigint,"
+    "  created timestamp with time zone NOT NULL DEFAULT now(),"
+    "  modified timestamp with time zone NOT NULL DEFAULT now(),"
+    "  CONSTRAINT rsc_gone_pkey PRIMARY KEY (id)"
+    ")"),
     {ok, [], []} = epgsql:squery(C, "CREATE INDEX rsc_gone_name ON rsc_gone(name)"),
     {ok, [], []} = epgsql:squery(C, "CREATE INDEX rsc_gone_page_path ON rsc_gone(page_path)"),
     {ok, [], []} = epgsql:squery(C, "CREATE INDEX rsc_gone_modified ON rsc_gone(modified)"),
@@ -410,27 +435,27 @@ install_rsc_gone_1(C) ->
 install_medium_log(C, Database, Schema) ->
     case has_table(C, "medium_log", Database, Schema) of
         false ->
-            {ok,[],[]} = epgsql:squery(C, z_install:medium_log_table()),
-            {ok,[],[]} = epgsql:squery(C, z_install:medium_update_function()),
-            {ok,[],[]} = epgsql:squery(C, z_install:medium_update_trigger()),
+            {ok, [], []} = epgsql:squery(C, z_install:medium_log_table()),
+            {ok, [], []} = epgsql:squery(C, z_install:medium_update_function()),
+            {ok, [], []} = epgsql:squery(C, z_install:medium_update_trigger()),
             {ok, _} = epgsql:squery(C,
-                                   "
-                                insert into medium_log (usr_id, filename, created)
-                                   select r.creator_id, m.filename, m.created
-                                   from medium m join rsc r on r.id = m.id
-                                   where m.filename is not null
-                                   and m.filename <> ''
-                                   and m.is_deletable_file
-                                   "),
+                "
+             insert into medium_log (usr_id, filename, created)
+                select r.creator_id, m.filename, m.created
+                from medium m join rsc r on r.id = m.id
+                where m.filename is not null
+                and m.filename <> ''
+                and m.is_deletable_file
+                "),
             {ok, _} = epgsql:squery(C,
-                                   "
-                                insert into medium_log (usr_id, filename, created)
-                                   select r.creator_id, m.preview_filename, m.created
-                                   from medium m join rsc r on r.id = m.id
-                                   where m.preview_filename is not null
-                                   and m.preview_filename <> ''
-                                   and m.is_deletable_preview
-                                   "),
+                "
+             insert into medium_log (usr_id, filename, created)
+                select r.creator_id, m.preview_filename, m.created
+                from medium m join rsc r on r.id = m.id
+                where m.preview_filename is not null
+                and m.preview_filename <> ''
+                and m.is_deletable_preview
+                "),
             ok;
         true ->
             ok
@@ -439,35 +464,37 @@ install_medium_log(C, Database, Schema) ->
 
 install_pivot_location(C, Database, Schema) ->
     Added = lists:foldl(fun(Col, Acc) ->
-                          case has_column(C, "rsc", Col, Database, Schema) of
-                              true ->
-                                  Acc;
-                              false ->
-                                  {ok, [], []} = epgsql:squery(C, "alter table rsc add column " ++ Col ++ " float"),
-                                  true
-                          end
-                        end,
-                        false,
-                        ["pivot_location_lat", "pivot_location_lng"]),
+        case has_column(C, "rsc", Col, Database, Schema) of
+            true ->
+                Acc;
+            false ->
+                {ok, [], []} = epgsql:squery(C, "alter table rsc add column " ++ Col ++ " float"),
+                true
+        end
+    end,
+        false,
+        ["pivot_location_lat", "pivot_location_lng"]),
     case Added of
         true ->
-            {ok, [], []} = epgsql:squery(C, "CREATE INDEX rsc_pivot_location_key ON rsc (pivot_location_lat, pivot_location_lng)"),
+            {ok, [], []} = epgsql:squery(
+                C,
+                "CREATE INDEX rsc_pivot_location_key ON rsc (pivot_location_lat, pivot_location_lng)"
+            ),
             ok;
         false ->
             ok
     end.
 
 
-
 %% Log all edge changes. This log is polled to issue edge-change notifications.
 install_edge_log(C, Database, Schema) ->
     case has_table(C, "edge_log", Database, Schema) of
         false ->
-            {ok,[],[]} = epgsql:squery(C, z_install:edge_log_table()),
-            {ok,[],[]} = epgsql:squery(C, z_install:edge_log_function()),
-            {ok,[],[]} = epgsql:squery(C, z_install:edge_log_trigger()),
+            {ok, [], []} = epgsql:squery(C, z_install:edge_log_table()),
+            {ok, [], []} = epgsql:squery(C, z_install:edge_log_function()),
+            {ok, [], []} = epgsql:squery(C, z_install:edge_log_trigger()),
             ok;
-         true ->
+        true ->
             ok
     end.
 
@@ -489,14 +516,18 @@ ensure_module_active(C, Module) ->
 
 %% Ensure that all timestamp columns have a time zone
 fix_timestamptz(C, Database, Schema) ->
-    [   fix_timestamptz_column(C, Table, Column, Database, Schema)
+    [fix_timestamptz_column(C, Table, Column, Database, Schema)
         || {Table, Column} <- get_timestamp_without_timezone_columns(C, Database, Schema)
     ],
     ok.
 
 fix_timestamptz_column(C, Table, Col, Database, Schema) ->
     lager:info("[database: ~p ~p] Adding time zone to ~p ~p", [Database, Schema, Table, Col]),
-    {ok, [], []} = epgsql:squery(C, "alter table "++binary_to_list(Table)++" alter column "++binary_to_list(Col)++" type timestamp with time zone"),
+    {ok, [], []} = epgsql:squery(
+        C,
+        "alter table " ++ binary_to_list(Table) ++ " alter column " ++
+            binary_to_list(Col) ++ " type timestamp with time zone"
+    ),
     ok.
 
 get_timestamp_without_timezone_columns(C, Database, Schema) ->
@@ -506,7 +537,7 @@ get_timestamp_without_timezone_columns(C, Database, Schema) ->
                                    where table_catalog = $1
                                      and table_schema = $2
                                      and data_type = 'timestamp without time zone'",
-                                [Database, Schema]),
+        [Database, Schema]),
     Cols.
 
 
@@ -516,15 +547,21 @@ install_content_group_dependent(C, Database, Schema) ->
         true ->
             ok;
         false ->
-            lager:info("[database: ~p ~p] Adding rsc.is_dependent and rsc.content_group_id", [Database, Schema]),
+            lager:info(
+                "[database: ~p ~p] Adding rsc.is_dependent and rsc.content_group_id",
+                [Database, Schema]
+            ),
             {ok, [], []} = epgsql:squery(C,
-                              "ALTER TABLE rsc "
-                              "ADD COLUMN is_dependent BOOLEAN NOT NULL DEFAULT false,"
-                              "ADD COLUMN content_group_id INT,"
-                              "ADD CONSTRAINT fk_rsc_content_group_id FOREIGN KEY (content_group_id) "
-                              "    REFERENCES rsc(id)"
-                              "    ON UPDATE CASCADE ON DELETE SET NULL"),
-            {ok, [], []} = epgsql:squery(C, "CREATE INDEX fki_rsc_content_group_id ON rsc (content_group_id)"),
+                "ALTER TABLE rsc "
+                "ADD COLUMN is_dependent BOOLEAN NOT NULL DEFAULT false,"
+                "ADD COLUMN content_group_id INT,"
+                "ADD CONSTRAINT fk_rsc_content_group_id FOREIGN KEY (content_group_id) "
+                "    REFERENCES rsc(id)"
+                "    ON UPDATE CASCADE ON DELETE SET NULL"),
+            {ok, [], []} = epgsql:squery(
+                C,
+                "CREATE INDEX fki_rsc_content_group_id ON rsc (content_group_id)"
+            ),
             ok
     end.
 
@@ -532,8 +569,8 @@ convert_category_hierarchy(C, Database, Schema) ->
     case has_table(C, "hierarchy", Database, Schema) of
         false ->
             {ok, [], []} = epgsql:squery(C, z_install:hierarchy_table()),
-            {ok, [], []} = epgsql:squery(C, z_install:hierarchy_index_1()),
-            {ok, [], []} = epgsql:squery(C, z_install:hierarchy_index_2()),
+            {ok, [], []} = epgsql:squery(C, z_install:hierarchy_index1()),
+            {ok, [], []} = epgsql:squery(C, z_install:hierarchy_index2()),
 
             {ok, _} = epgsql:squery(C, "
                 insert into hierarchy

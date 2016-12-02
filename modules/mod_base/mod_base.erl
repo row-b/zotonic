@@ -36,8 +36,9 @@
 ]).
 
 %% @doc Return the filename of a still image to be used for image tags.
-%% @spec observe_media_stillimage(Notification, _Context) -> undefined | {ok, Filename} | {ok, {filepath, Filename, Path}}
-observe_media_stillimage(#media_stillimage{props=Props}, Context) ->
+-spec observe_media_stillimage(#media_stillimage{}, z:context()) ->
+    undefined | {ok, Filename} | {ok, {filepath, Filename, term()}}.
+observe_media_stillimage(#media_stillimage{props = Props}, Context) ->
     case proplists:get_value(preview_filename, Props) of
         None when None =:= <<>>; None =:= undefined ->
             case proplists:get_value(mime, Props) of
@@ -50,21 +51,22 @@ observe_media_stillimage(#media_stillimage{props=Props}, Context) ->
                             undefined;
                         false ->
                             %% Serve an icon representing the mime type.
-                            [A,B] = string:tokens(z_convert:to_list(Mime), "/"),
+                            [A, B] = string:tokens(z_convert:to_list(Mime), "/"),
                             Files = [
-                                "images/mimeicons/"++A++[$-|B]++".png",
-                                "images/mimeicons/"++A++".png",
+                                    "images/mimeicons/" ++ A ++ [$- | B] ++ ".png",
+                                    "images/mimeicons/" ++ A ++ ".png",
                                 "images/mimeicons/application-octet-stream.png"
                             ],
 
                             lists:foldl(
                                 fun(F, undefined) ->
-                                        case z_module_indexer:find(lib, F, Context) of
-                                            {ok, #module_index{filepath=_File}} -> {ok, "lib/"++F};
-                                            {error, enoent} -> undefined
-                                        end;
-                                   (_F, Result) ->
-                                       Result
+                                    case z_module_indexer:find(lib, F, Context) of
+                                        {ok, #module_index{filepath = _File}} ->
+                                            {ok, "lib/" ++ F};
+                                        {error, enoent} -> undefined
+                                    end;
+                                    (_F, Result) ->
+                                        Result
                                 end,
                                 undefined,
                                 Files)
@@ -76,33 +78,33 @@ observe_media_stillimage(#media_stillimage{props=Props}, Context) ->
 
 
 %% @doc Part of the {% script %} rendering in templates
-observe_scomp_script_render(#scomp_script_render{is_nostartup=false}, Context) ->
+observe_scomp_script_render(#scomp_script_render{is_nostartup = false}, Context) ->
     DefaultFormPostback = z_render:make_postback_info(<<>>, <<"submit">>, undefined, undefined, undefined, Context),
-    [<<"z_init_postback_forms();\nz_default_form_postback = \"">>, DefaultFormPostback, $", $; ];
-observe_scomp_script_render(#scomp_script_render{is_nostartup=true}, _Context) ->
+    [<<"z_init_postback_forms();\nz_default_form_postback = \"">>, DefaultFormPostback, $", $;];
+observe_scomp_script_render(#scomp_script_render{is_nostartup = true}, _Context) ->
     [].
 
 %% @doc Check if there is a controller or template matching the path.
-observe_dispatch(#dispatch{path=Path}, Context) ->
+observe_dispatch(#dispatch{path = Path}, Context) ->
     case m_rsc:page_path_to_id(z_url:url_path_encode(Path), Context) of
         {ok, Id} ->
             {ok, Id};
         {redirect, Id} ->
             {ok, #dispatch_match{
-                    mod=controller_redirect,
-                    mod_opts=[{id, Id}, {is_permanent, true}]}};
+                mod = controller_redirect,
+                mod_opts = [{id, Id}, {is_permanent, true}]}};
         {error, _} ->
             Last = last(Path),
-            Template= case Last of
-                         $/ -> <<"static/", Path/binary, "index.tpl">>;
-                         _ -> <<"static/", Path/binary, ".tpl">>
-                      end,
+            Template = case Last of
+                $/ -> <<"static/", Path/binary, "index.tpl">>;
+                _ -> <<"static/", Path/binary, ".tpl">>
+            end,
             case z_module_indexer:find(template, Template, Context) of
                 {ok, _} ->
                     {ok, #dispatch_match{
-                        mod=controller_template,
-                        mod_opts=[{template, Template}, {ssl, any}],
-                        bindings=[{path, Path}, {is_static, true}]
+                        mod = controller_template,
+                        mod_opts = [{template, Template}, {ssl, any}],
+                        bindings = [{path, Path}, {is_static, true}]
                     }};
                 {error, _} ->
                     % Check again, assuming the path is a directory (without trailing $/)
@@ -116,9 +118,9 @@ observe_dispatch(#dispatch{path=Path}, Context) ->
                             case z_module_indexer:find(template, Template1, Context) of
                                 {ok, _} ->
                                     {ok, #dispatch_match{
-                                        mod=controller_template,
-                                        mod_opts=[{template, Template1}, {ssl, any}],
-                                        bindings=[{path, Path}, {is_static, true}]
+                                        mod = controller_template,
+                                        mod_opts = [{template, Template1}, {ssl, any}],
+                                        bindings = [{path, Path}, {is_static, true}]
                                     }};
                                 {error, _} ->
                                     undefined

@@ -62,30 +62,32 @@ module_reindexed(module_reindexed, Context) ->
     reset(z_context:site(Context)).
 
 -spec render(#render{}, #context{}) -> template_compiler:render_result().
-render(#render{template=Template, vars=Vars}, Context) ->
+render(#render{template = Template, vars = Vars}, Context) ->
     render_block(undefined, Template, Vars, Context).
 
--spec render(template_compiler:template()|#module_index{}, list()|map(), #context{}) -> template_compiler:render_result().
+-spec render(template_compiler:template()|#module_index{}, list()|map(), #context{}) ->
+    template_compiler:render_result().
 render(Template, Vars, Context) ->
     render_block(undefined, Template, Vars, Context).
 
 -spec render_block(atom(), #render{}, #context{}) -> template_compiler:render_result().
-render_block(Block, #render{template=Template, vars=Vars}, Context) ->
+render_block(Block, #render{template = Template, vars = Vars}, Context) ->
     render_block(Block, Template, Vars, Context).
 
--spec render_block(atom(), template_compiler:template()|#module_index{}, list()|map(), #context{}) -> template_compiler:render_result().
+-spec render_block(atom(), template_compiler:template()|#module_index{}, list()|map(), #context{}) ->
+    template_compiler:render_result().
 render_block(OptBlock, Template, Vars, Context) when is_list(Vars) ->
     render_block(OptBlock, Template, props_to_map(Vars, #{}), Context);
-render_block(OptBlock, #module_index{filepath=Filename, key=Key}, Vars, Context) ->
+render_block(OptBlock, #module_index{filepath = Filename, key = Key}, Vars, Context) ->
     Template = #template_file{
-        filename=Filename,
-        template=Key#module_index_key.name
+        filename = Filename,
+        template = Key#module_index_key.name
     },
     render_block(OptBlock, Template, Vars, Context);
 render_block(OptBlock, Template, Vars, Context) when is_map(Vars) ->
     OldCaching = z_depcache:in_process(true),
     Vars1 = ensure_zotonic_vars(Vars, Context),
-    Opts =  [
+    Opts = [
         {runtime, z_template_compiler_runtime},
         {context_name, z_context:site(Context)},
         {context_vars, [
@@ -95,11 +97,11 @@ render_block(OptBlock, Template, Vars, Context) when is_map(Vars) ->
         ]}
     ],
     Result = case OptBlock of
-                undefined ->
-                    template_compiler:render(Template, Vars1, Opts, Context);
-                Block when is_atom(Block) ->
-                    template_compiler:render_block(Block, Template, Vars1, Opts, Context)
-             end,
+        undefined ->
+            template_compiler:render(Template, Vars1, Opts, Context);
+        Block when is_atom(Block) ->
+            template_compiler:render_block(Block, Template, Vars1, Opts, Context)
+    end,
     z_depcache:in_process(OldCaching),
     case Result of
         {ok, Output} ->
@@ -147,16 +149,18 @@ ensure_zotonic_vars(Vars, Context) ->
 
 props_to_map([], Map) ->
     Map;
-props_to_map([{K,V}|Rest], Map) ->
+props_to_map([{K, V} | Rest], Map) ->
     props_to_map(Rest, Map#{K => V});
-props_to_map([K|Rest], Map) ->
+props_to_map([K | Rest], Map) ->
     props_to_map(Rest, Map#{K => true}).
 
 
-%% @doc Render a template to an iolist().  This removes all scomp state etc from the rendered html and appends the
+%% @doc Render a template to an iolist().  This removes all scomp state etc from
+%% the rendered html and appends the
 %% information in the scomp states to the context for later rendering.
 -spec render_to_iolist(template_compiler:template() | #module_index{},
-    list() | map(), #context{}) -> {iolist(), #context{}}.
+    list() | map(), #context{}) ->
+    {iolist(), #context{}}.
 render_to_iolist(File, Vars, Context) ->
     Html = render(File, Vars, Context),
     z_render:render_to_iolist(Html, Context).

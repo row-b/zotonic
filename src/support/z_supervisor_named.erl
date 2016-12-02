@@ -86,7 +86,7 @@ start_child(SupRef, ChildName, Pid) when is_pid(Pid) ->
         temporary, 5000, worker, []
     },
     call(SupRef, {start_child, ChildSpec});
-start_child(SupRef, ChildName, {M,_,_} = MFA) ->
+start_child(SupRef, ChildName, {M, _, _} = MFA) ->
     ChildSpec = {
         ChildName,
         MFA,
@@ -163,8 +163,8 @@ handle_call({start_child, Pid}, _From, State) when is_pid(Pid) ->
         error ->
             MonitorRef = erlang:monitor(process, Pid),
             State1 = State#state{
-                        dynamics=dict:store(Pid, {'$MONITOR', MonitorRef}, State#state.dynamics)
-                    },
+                dynamics = dict:store(Pid, {'$MONITOR', MonitorRef}, State#state.dynamics)
+            },
             {reply, {ok, Pid}, State1}
     end;
 
@@ -227,7 +227,7 @@ handle_call({delete_child, Pid}, From, State) when is_pid(Pid) ->
     case dict:find(Pid, State#state.dynamics) of
         {ok, {'$MONITOR', MonitorRef}} ->
             erlang:demonitor(MonitorRef),
-            {reply, ok, State#state{dynamics=dict:erase(Pid, State#state.dynamics)}};
+            {reply, ok, State#state{dynamics = dict:erase(Pid, State#state.dynamics)}};
         {ok, Name} ->
             handle_call({delete_child, Name}, From, State);
         error ->
@@ -255,11 +255,11 @@ handle_call({terminate_child, Name}, _From, State) ->
 
 handle_call(which_children, _From, State) ->
     Resp = dict:fold(
-            fun(_Key, #child{pid = Pid, name = Name, child_type = ChildType, modules = Mods}, Acc) ->
-                [{Name, Pid, ChildType, Mods} | Acc]
-            end,
-            [],
-            State#state.children),
+        fun(_Key, #child{pid = Pid, name = Name, child_type = ChildType, modules = Mods}, Acc) ->
+            [{Name, Pid, ChildType, Mods} | Acc]
+        end,
+        [],
+        State#state.children),
     {reply, Resp, State};
 
 handle_call(running_children, _From, State) ->
@@ -268,21 +268,21 @@ handle_call(running_children, _From, State) ->
 handle_call(count_children, _From, State) ->
     %% Specs and children are together on the children list...
     {Specs, Active, Supers, Workers} =
-            dict:fold(fun(_Key, Child, Counts) ->
-                        count_child(Child, Counts)
-                      end,
-                      {0,0,0,0},
-                      State#state.children),
-    OnlyPid = dict:fold(fun(_Pid, {'$MONITOR', _Ref}, Count) -> Count+1;
-                           (_Pid, _Name, Count) -> Count
-                        end,
-                        0,
-                        State#state.dynamics),
+        dict:fold(fun(_Key, Child, Counts) ->
+            count_child(Child, Counts)
+        end,
+            {0, 0, 0, 0},
+            State#state.children),
+    OnlyPid = dict:fold(fun(_Pid, {'$MONITOR', _Ref}, Count) -> Count + 1;
+        (_Pid, _Name, Count) -> Count
+    end,
+        0,
+        State#state.dynamics),
 
     %% Reformat counts to a property list.
     Reply = [
         {specs, Specs},
-        {active, Active+OnlyPid},
+        {active, Active + OnlyPid},
         {supervisors, Supers},
         {workers, Workers},
         {monitors, OnlyPid}
@@ -291,13 +291,13 @@ handle_call(count_children, _From, State) ->
 
 count_child(#child{pid = Pid, child_type = worker}, {Specs, Active, Supers, Workers}) ->
     case is_pid(Pid) andalso is_process_alive(Pid) of
-        true ->  {Specs+1, Active+1, Supers, Workers+1};
-        false -> {Specs+1, Active, Supers, Workers+1}
+        true -> {Specs + 1, Active + 1, Supers, Workers + 1};
+        false -> {Specs + 1, Active, Supers, Workers + 1}
     end;
 count_child(#child{pid = Pid, child_type = supervisor}, {Specs, Active, Supers, Workers}) ->
     case is_pid(Pid) andalso is_process_alive(Pid) of
-        true ->  {Specs+1, Active+1, Supers+1, Workers};
-        false -> {Specs+1, Active, Supers+1, Workers}
+        true -> {Specs + 1, Active + 1, Supers + 1, Workers};
+        false -> {Specs + 1, Active, Supers + 1, Workers}
     end.
 
 
@@ -312,17 +312,17 @@ handle_cast(null, State) ->
 %%
 handle_info({'EXIT', Pid, Reason}, State) ->
     case restart_child(Pid, Reason, State) of
-    {ok, State1} ->
-        {noreply, State1};
-    {shutdown, State1} ->
-        {stop, shutdown, State1}
+        {ok, State1} ->
+            {noreply, State1};
+        {shutdown, State1} ->
+            {stop, shutdown, State1}
     end;
 
 handle_info({'DOWN', _MonitorRef, process, Pid, _Reason}, State) ->
     case dict:find(Pid, State#state.dynamics) of
         {ok, {'$MONITOR', _Ref}} ->
             {noreply, State#state{
-                dynamics=dict:erase(Pid, State#state.dynamics)
+                dynamics = dict:erase(Pid, State#state.dynamics)
             }};
         _Other ->
             {noreply, State}
@@ -373,16 +373,16 @@ do_start_child(#child{mfa = {M, F, A}}) ->
 
 
 save_child(undefined, Child, State) ->
-    Child1 = Child#child{pid=undefined},
+    Child1 = Child#child{pid = undefined},
     State#state{
         dynamics = dict:erase(Child#child.pid, State#state.dynamics),
         children = dict:store(Child1#child.name, Child1, State#state.children)
     };
 save_child(Pid, Child, State) ->
-    Child1 = Child#child{pid=Pid},
+    Child1 = Child#child{pid = Pid},
     State#state{
         dynamics = dict:store(Pid, Child1#child.name,
-                                dict:erase(Child#child.pid, State#state.dynamics)),
+            dict:erase(Child#child.pid, State#state.dynamics)),
         children = dict:store(Child1#child.name, Child1, State#state.children)
     }.
 
@@ -396,10 +396,10 @@ remove_child(Child, State) ->
 
 terminate_children(Children) ->
     dict:fold(fun(_Key, Child, Acc) ->
-                    [{do_terminate(Child), Child} | Acc]
-              end,
-              [],
-              Children).
+        [{do_terminate(Child), Child} | Acc]
+    end,
+        [],
+        Children).
 
 do_terminate(Child) when Child#child.pid =/= undefined ->
     case shutdown(Child#child.pid, Child#child.shutdown) of
@@ -421,7 +421,7 @@ restart_child(Pid, Reason, State) ->
                     do_restart(Child#child.restart_type, Reason, Child, State);
                 error ->
                     State1 = State#state{
-                        dynamics=dict:erase(Pid, State#state.dynamics)
+                        dynamics = dict:erase(Pid, State#state.dynamics)
                     },
                     {ok, State1}
             end;
@@ -448,12 +448,12 @@ do_restart(temporary, Reason, Child, State) ->
     {ok, NState}.
 
 
-state_del_child(#child{pid=undefined}, State) ->
+state_del_child(#child{pid = undefined}, State) ->
     State;
-state_del_child(#child{name=Name, pid=Pid} = Child, State) ->
+state_del_child(#child{name = Name, pid = Pid} = Child, State) ->
     State#state{
-        dynamics=dict:erase(Pid, State#state.dynamics),
-        children=dict:store(Name, Child#child{pid=undefined}, State#state.children)
+        dynamics = dict:erase(Pid, State#state.dynamics),
+        children = dict:store(Name, Child#child{pid = undefined}, State#state.children)
     }.
 
 restart(Child, State) ->
@@ -476,8 +476,6 @@ restart(Child, State) ->
     end.
 
 
-
-
 %%% ------------------------------------------------------
 %%% Add a new restart and calculate if the max restart
 %%% intensity has been reached (in that case the supervisor
@@ -492,19 +490,19 @@ add_restart(State) ->
     P = State#state.period,
     R = State#state.restarts,
     Now = os:timestamp(),
-    R1 = add_restart([Now|R], Now, P),
+    R1 = add_restart([Now | R], Now, P),
     State1 = State#state{restarts = R1},
     case length(R1) of
-        CurI when CurI  =< I ->
+        CurI when CurI =< I ->
             {ok, State1};
         _ ->
             {terminate, State1}
     end.
 
-add_restart([R|Restarts], Now, Period) ->
+add_restart([R | Restarts], Now, Period) ->
     case inPeriod(R, Now, Period) of
         true ->
-            [R|add_restart(Restarts, Now, Period)];
+            [R | add_restart(Restarts, Now, Period)];
         _ ->
             []
     end;
@@ -585,8 +583,8 @@ monitor_child(Pid) ->
     erlang:monitor(process, Pid),
     unlink(Pid),
     receive
-        %% If the child dies before the unlik we must empty
-        %% the mail-box of the 'EXIT'-message and the 'DOWN'-message.
+    %% If the child dies before the unlik we must empty
+    %% the mail-box of the 'EXIT'-message and the 'DOWN'-message.
         {'EXIT', Pid, Reason} ->
             receive
                 {'DOWN', _, process, Pid, _} ->
@@ -619,10 +617,10 @@ report_error(Error, Reason, Child) ->
 
 extract_child(Child) ->
     [{pid, Child#child.pid},
-     {name, Child#child.name},
-     {mfa, Child#child.mfa},
-     {restart_type, Child#child.restart_type},
-     {shutdown, Child#child.shutdown},
-     {child_type, Child#child.child_type}].
+        {name, Child#child.name},
+        {mfa, Child#child.mfa},
+        {restart_type, Child#child.restart_type},
+        {shutdown, Child#child.shutdown},
+        {child_type, Child#child.child_type}].
 
 

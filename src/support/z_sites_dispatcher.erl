@@ -79,11 +79,11 @@
 }).
 
 -type dispatch() :: #dispatch_controller{}
-                    | #dispatch_nomatch{}
-                    | {redirect, Site :: atom()}
-                    | {redirect, Site :: atom(), NewPathOrURI :: binary(), IsPermanent :: boolean()}
-                    | {redirect_protocol, http|https, Site :: atom(), IsPermanent :: boolean()}
-                    | {stop_request, pos_integer()}.
+| #dispatch_nomatch{}
+| {redirect, Site :: atom()}
+| {redirect, Site :: atom(), NewPathOrURI :: binary(), IsPermanent :: boolean()}
+| {redirect_protocol, http|https, Site :: atom(), IsPermanent :: boolean()}
+| {stop_request, pos_integer()}.
 
 -export_type([
     dispatch_rule/0,
@@ -108,7 +108,6 @@ start_link(Args) when is_list(Args) ->
 %% information from all sites and recompiles the dispatch rules.
 update_dispatchinfo() ->
     gen_server:cast(?MODULE, update_dispatchinfo).
-
 
 
 %% @doc Cowboy middleware, route the new request. Continue with the cowmachine,
@@ -170,16 +169,16 @@ dispatch(Req) ->
 
 dispatch(Method, Host, Path, IsSsl, TracerPid) when is_boolean(IsSsl) ->
     Protocol = case IsSsl of
-                    true -> https;
-                    false -> http
-               end,
+        true -> https;
+        false -> http
+    end,
     DispReq = #dispatch{
-                    host=z_convert:to_binary(Host),
-                    path=z_convert:to_binary(Path),
-                    method=Method,
-                    protocol=Protocol,
-                    tracer_pid=TracerPid
-              },
+        host = z_convert:to_binary(Host),
+        path = z_convert:to_binary(Path),
+        method = Method,
+        protocol = Protocol,
+        tracer_pid = TracerPid
+    },
     dispatch_1(DispReq, undefined).
 
 
@@ -187,8 +186,8 @@ dispatch(Method, Host, Path, IsSsl, TracerPid) when is_boolean(IsSsl) ->
 get_fallback_site() ->
     case ets:lookup(?MODULE, <<"*">>) of
         [] -> undefined;
-        [{_,Site}] -> Site;
-        [{_,Site, _}] -> Site
+        [{_, Site}] -> Site;
+        [{_, Site, _}] -> Site
     end.
 
 %% @doc Fetch the site handling the given hostname (with optional port) (debug function)
@@ -197,8 +196,8 @@ get_site_for_hostname(Hostname) when is_list(Hostname) ->
     get_site_for_hostname(list_to_binary(Hostname));
 get_site_for_hostname(Hostname) ->
     case ets:lookup(?MODULE, strip_port(Hostname)) of
-        [{_,Site}] -> {ok, Site};
-        [{_,Site,_Redirect}] -> {ok, Site};
+        [{_, Site}] -> {ok, Site};
+        [{_, Site, _Redirect}] -> {ok, Site};
         [] -> undefined
     end.
 
@@ -216,7 +215,8 @@ raw_path(Req) ->
 
 redirect(Uri, IsPermanent, Req) ->
     Req1 = cowboy_req:set_resp_header(<<"location">>, Uri, Req),
-    {stop, cowboy_req:reply(case IsPermanent of true -> 301; false -> 302 end, Req1)}.
+    {stop, cowboy_req:reply(case IsPermanent of true -> 301; false ->
+        302 end, Req1)}.
 
 
 handle_404(_Method, undefined, Req, _Env, _Bindings, _Context) ->
@@ -229,7 +229,7 @@ handle_404(Method, Site, Req, Env, Bindings, Context) when Method =:= <<"GET">>;
     }, Env#{
         site => Site,
         controller => controller_http_error,
-        controller_options => [ {http_status_code, 404} ],
+        controller_options => [{http_status_code, 404}],
         path_tokens => [],
         bindings => Bindings,
         context => Context
@@ -253,7 +253,7 @@ dispatch_1(DispReq, OptReq) ->
                 Other ->
                     Other
             end;
-        [{_,Site}] ->
+        [{_, Site}] ->
             Context = z_context:set_reqdata(OptReq, z_context:new(Site)),
             dispatch_site(DispReq, Context);
         [{_,Site,_Redirect}] ->
@@ -282,12 +282,12 @@ dispatch_site(#dispatch{tracer_pid = TracerPid, path = Path, host = Hostname} = 
         case dispatch_match(TokensRewritten, Context) of
             {ok, {DispatchRule, MatchBindings}} ->
                 trace_final(
-                        TracerPid,
-                        do_dispatch_rule(DispatchRule, Bindings1++fix_match_bindings(MatchBindings, IsDir), TokensRewritten, IsDir, DispReq, Context));
+                    TracerPid,
+                    do_dispatch_rule(DispatchRule, Bindings1 ++ fix_match_bindings(MatchBindings, IsDir), TokensRewritten, IsDir, DispReq, Context));
             fail ->
                 trace_final(
-                        TracerPid,
-                        do_dispatch_fail(Bindings1, TokensRewritten, IsDir, DispReq, Context))
+                    TracerPid,
+                    do_dispatch_fail(Bindings1, TokensRewritten, IsDir, DispReq, Context))
         end
     catch
         throw:{stop_request, RespCode} ->
@@ -307,10 +307,10 @@ dispatch_match(Tokens, Context) ->
 %% @doc Fix bindings: values should be lists and the '*' should be a binary
 %% @todo Allow a match for list, so that we don't need to split again in the controller
 fix_match_bindings(Ms, IsDir) ->
-    [ fix_match_binding(M, IsDir) || M <- Ms ].
+    [fix_match_binding(M, IsDir) || M <- Ms].
 
 fix_match_binding({'*', List}, IsDir) when is_list(List) ->
-    List1 = [ cow_qs:urlencode(B) || B <- List ],
+    List1 = [cow_qs:urlencode(B) || B <- List],
     Path = z_utils:combine($/, List1),
     case IsDir of
         true -> {'*', iolist_to_binary([Path, $/])};
@@ -324,9 +324,9 @@ split_path(<<"/", P/binary>>) ->
 split_path(Path) when is_binary(Path) ->
     Parts = binary:split(Path, <<"/">>, [global]),
     Parts1 = remove_dotdot(Parts),
-    Parts2 = [ unescape(Part) || Part <- Parts1 ],
+    Parts2 = [unescape(Part) || Part <- Parts1],
     case lists:last(Parts2) of
-        <<>> -> {lists:sublist(Parts2, length(Parts2)-1), true};
+        <<>> -> {lists:sublist(Parts2, length(Parts2) - 1), true};
         _ -> {Parts2, false}
     end.
 
@@ -338,10 +338,10 @@ remove_dotdot(Parts) ->
 
 remove_dotdot([], _Acc) ->
     none;
-remove_dotdot([_,<<"..">>|Rest], Acc) ->
+remove_dotdot([_, <<"..">> | Rest], Acc) ->
     lists:reverse(Acc, Rest);
-remove_dotdot([A|Rest], Acc) ->
-    remove_dotdot(Rest, [A|Acc]).
+remove_dotdot([A | Rest], Acc) ->
+    remove_dotdot(Rest, [A | Acc]).
 
 unescape(P) ->
     case binary:match(P, <<"%">>) of
@@ -352,12 +352,13 @@ unescape(P) ->
 -spec dispatch_rewrite(binary(), binary(), list(), boolean(), pid(), #context{}) -> tuple().
 dispatch_rewrite(Hostname, Path, Tokens, IsDir, TracerPid, Context) ->
     {Tokens1, Bindings} = z_notifier:foldl(
-                            #dispatch_rewrite{is_dir=IsDir, path=Path, host=Hostname},
-                            {Tokens, []},
-                            Context),
+        #dispatch_rewrite{is_dir = IsDir, path = Path, host = Hostname},
+        {Tokens, []},
+        Context),
     case Tokens1 of
         Tokens -> ok;
-        _ -> trace(TracerPid, Path, dispatch_rewrite, [{path,Tokens1},{bindings,Bindings}])
+        _ ->
+            trace(TracerPid, Path, dispatch_rewrite, [{path, Tokens1}, {bindings, Bindings}])
     end,
     {Tokens1, Bindings}.
 
@@ -402,15 +403,15 @@ handle_cast(update_dispatchinfo, State) ->
     NewRules = collect_dispatchrules(),
     do_compile_modified(State#state.rules, NewRules),
     {noreply, State#state{
-                rules=NewRules,
-                fallback_site=FallbackSite
-            }};
+        rules = NewRules,
+        fallback_site = FallbackSite
+    }};
 
 %% @doc Fetch all active hostnames
 handle_cast(update_hosts, State) ->
     FallbackSite = z_sites_manager:get_fallback_site(),
     do_update_hosts(FallbackSite),
-    {noreply, State#state{fallback_site=FallbackSite}};
+    {noreply, State#state{fallback_site = FallbackSite}};
 
 %% @doc Trap unknown casts
 handle_cast(Message, State) ->
@@ -442,15 +443,15 @@ code_change(_OldVsn, State, _Extra) ->
 %% @doc Update the ets table with all host/site mappings
 do_update_hosts(FallbackSite) ->
     Cs = z_sites_manager:get_site_contexts(),
-    Hs = lists:flatten([ get_site_hosts(Context) || Context <- Cs ]),
-    Hs1 = [ {strip_port(Host), Prio, Site} || {Host, Prio, Site} <- Hs ],
-    Hs2 = lists:sort([ {<<"*">>, 99, FallbackSite} | Hs1 ]),
+    Hs = lists:flatten([get_site_hosts(Context) || Context <- Cs]),
+    Hs1 = [{strip_port(Host), Prio, Site} || {Host, Prio, Site} <- Hs],
+    Hs2 = lists:sort([{<<"*">>, 99, FallbackSite} | Hs1]),
     Dict = lists:foldr(
-                fun({Host, _, Site}, Acc) ->
-                    dict:store(Host, Site, Acc)
-                end,
-                dict:new(),
-                Hs2),
+        fun({Host, _, Site}, Acc) ->
+            dict:store(Host, Site, Acc)
+        end,
+        dict:new(),
+        Hs2),
     Redirects = [
         {z_context:site(Context), is_site_redirect(Context), z_context:hostname(Context), z_context:hostname_port(Context)}
         || Context <- Cs
@@ -460,9 +461,9 @@ do_update_hosts(FallbackSite) ->
     HostSiteOld = lists:sort(ets:tab2list(?MODULE)),
     % Insert/delete the diff
     lists:foreach(fun(HostSite) ->
-                     ets:delete_object(?MODULE, HostSite)
-                  end,
-                  HostSiteOld -- HostSiteNew),
+        ets:delete_object(?MODULE, HostSite)
+    end,
+        HostSiteOld -- HostSiteNew),
     ets:insert(?MODULE, HostSiteNew -- HostSiteOld),
     ok.
 
@@ -474,7 +475,7 @@ is_site_redirect(Context) ->
     end.
 
 add_redirects(HostSites, Redirects) ->
-    [ add_redirect({Host, Site}, lists:keyfind(Site, 1, Redirects)) || {Host, Site} <- HostSites ].
+    [add_redirect({Host, Site}, lists:keyfind(Site, 1, Redirects)) || {Host, Site} <- HostSites].
 
 add_redirect(HS, {_, false, _, _}) ->
     HS;
@@ -494,38 +495,38 @@ get_site_hosts(#context{} = Context) ->
     Site = z_context:site(Context),
     Hostname = z_context:hostname(Context),
     HostAlias = case m_site:get(hostalias, Context) of
-                    undefined -> [];
-                    List when is_list(List) -> ensure_alias_list(List);
-                    _ -> []
-                end,
+        undefined -> [];
+        List when is_list(List) -> ensure_alias_list(List);
+        _ -> []
+    end,
     HostSmtp = m_site:get(smtphost, Context),
     Hs = [{Hostname, 1, Site}]
-        ++ [ {Alias, 2, Site} || Alias <- HostAlias ]
-        ++ [ {HostSmtp, 2, Site} ],
+        ++ [{Alias, 2, Site} || Alias <- HostAlias]
+        ++ [{HostSmtp, 2, Site}],
     lists:filter(
-                fun
-                    ({undefined, _, _}) -> false;
-                    ({[], _, _}) -> false;
-                    ({<<>>, _, _}) -> false;
-                    (_) -> true
-                end,
-                Hs).
+        fun
+            ({undefined, _, _}) -> false;
+            ({[], _, _}) -> false;
+            ({<<>>, _, _}) -> false;
+            (_) -> true
+        end,
+        Hs).
 
-ensure_alias_list([C|_] = Alias) when is_integer(C) -> [Alias];
+ensure_alias_list([C | _] = Alias) when is_integer(C) -> [Alias];
 ensure_alias_list(Alias) -> Alias.
 
 do_compile_modified(OldDs, NewDs) ->
     Ds = NewDs -- OldDs,
     lists:foreach(fun do_compile/1, Ds).
 
-do_compile(#site_dispatch_list{site=Site, dispatch_list=DL}) ->
+do_compile(#site_dispatch_list{site = Site, dispatch_list = DL}) ->
     dispatch_compiler:compile_load(z_utils:name_for_site(dispatch, Site), map_z_language(DL)).
 
 map_z_language(DL) ->
-    [ map_z_language_1(Disp) || Disp <- DL ].
+    [map_z_language_1(Disp) || Disp <- DL].
 
 map_z_language_1({Name, Path, Controller, Opts}) ->
-    Path1 = [ map_z_language_2(P) || P <- Path ],
+    Path1 = [map_z_language_2(P) || P <- Path],
     {Name, Path1, Controller, Opts}.
 
 map_z_language_2(z_language) -> {z_language, {?MODULE, is_bind_language}};
@@ -534,12 +535,12 @@ map_z_language_2(X) -> X.
 
 -spec do_dispatch_rule(tuple(), any(), any(), any(), any(), any()) -> #dispatch_controller{}.
 do_dispatch_rule({DispatchName, _, Mod, Props}, Bindings, Tokens, _IsDir, DispReq, Context) ->
-    #dispatch{tracer_pid=TracerPid, host=Hostname, protocol=Protocol} = DispReq,
-    Bindings1 = [ {zotonic_dispatch, DispatchName} | Bindings ],
+    #dispatch{tracer_pid = TracerPid, host = Hostname, protocol = Protocol} = DispReq,
+    Bindings1 = [{zotonic_dispatch, DispatchName} | Bindings],
     trace(TracerPid,
-          Tokens,
-          match,
-          [ {dispatch, DispatchName},
+        Tokens,
+        match,
+        [{dispatch, DispatchName},
             {controller, Mod},
             {controller_options, Props},
             {bindings, Bindings1}
@@ -568,12 +569,12 @@ do_dispatch_rule({DispatchName, _, Mod, Props}, Bindings, Tokens, _IsDir, DispRe
         _ ->
             % 'any', correct protocol, or no SSL port defined, or no host name
             #dispatch_controller{
-                dispatch_rule=DispatchName,
-                controller=Mod,
-                controller_options=Props,
-                path_tokens=Tokens,
-                bindings=Bindings1,
-                context=maybe_set_language(Bindings1, Context)
+                dispatch_rule = DispatchName,
+                controller = Mod,
+                controller_options = Props,
+                path_tokens = Tokens,
+                bindings = Bindings1,
+                context = maybe_set_language(Bindings1, Context)
             }
     end.
 
@@ -594,13 +595,13 @@ do_dispatch_fail(Bindings, Tokens, _IsDir, DispReq, Context0) ->
     TokenPath = tokens_to_path(Tokens),
     trace(DispReq#dispatch.tracer_pid, DispReq#dispatch.path, notify_dispatch, []),
     Context = maybe_set_language(Bindings, Context0),
-    Redirect = z_notifier:first(DispReq#dispatch{path=TokenPath}, Context),
+    Redirect = z_notifier:first(DispReq#dispatch{path = TokenPath}, Context),
     handle_rewrite(Redirect, DispReq, DispReq#dispatch.host, Tokens, Bindings, Context).
 
 tokens_to_path([]) ->
     <<"/">>;
 tokens_to_path(Ts) ->
-    iolist_to_binary([ [ $/, T ] || T <- Ts ]).
+    iolist_to_binary([[$/, T] || T <- Ts]).
 
 
 %% Handle possible request rewrite; used when no dispatch rule matched
@@ -608,7 +609,7 @@ handle_rewrite({ok, Id}, DispReq, MatchedHost, NonMatchedPathTokens, Bindings, C
     %% Retry with the resource's default page uri
     case m_rsc:p_no_acl(Id, default_page_url, Context) of
         undefined ->
-            trace(DispReq#dispatch.tracer_pid, undefined, rewrite_id, [{id,Id}]),
+            trace(DispReq#dispatch.tracer_pid, undefined, rewrite_id, [{id, Id}]),
             #dispatch_nomatch{
                 site = z_context:site(Context),
                 host = MatchedHost,
@@ -617,7 +618,7 @@ handle_rewrite({ok, Id}, DispReq, MatchedHost, NonMatchedPathTokens, Bindings, C
                 context = Context
             };
         DefaultPagePath ->
-            trace(DispReq#dispatch.tracer_pid, undefined, rewrite_id, [{id,Id},{path,DefaultPagePath}]),
+            trace(DispReq#dispatch.tracer_pid, undefined, rewrite_id, [{id, Id}, {path, DefaultPagePath}]),
             {Tokens, IsDir} = split_path(DefaultPagePath),
             {TokensRewritten, BindingsRewritten} = dispatch_rewrite(DispReq#dispatch.host, DefaultPagePath, Tokens, IsDir, DispReq#dispatch.tracer_pid, Context),
             BindingsRewritten1 = [
@@ -630,10 +631,10 @@ handle_rewrite({ok, Id}, DispReq, MatchedHost, NonMatchedPathTokens, Bindings, C
                 {ok, {DispatchRule, MatchBindings}} ->
                     set_dispatch_path(
                         do_dispatch_rule(
-                                    DispatchRule,
-                                    BindingsRewritten1++fix_match_bindings(MatchBindings, IsDir),
-                                    TokensRewritten, IsDir, DispReq,
-                                    Context),
+                            DispatchRule,
+                            BindingsRewritten1 ++ fix_match_bindings(MatchBindings, IsDir),
+                            TokensRewritten, IsDir, DispReq,
+                            Context),
                         NonMatchedPathTokens);
                 fail ->
                     trace(DispReq#dispatch.tracer_pid, undefined, rewrite_nomatch, []),
@@ -647,31 +648,31 @@ handle_rewrite({ok, Id}, DispReq, MatchedHost, NonMatchedPathTokens, Bindings, C
             end
     end;
 handle_rewrite({ok, #dispatch_match{
-                            dispatch_name=SDispatchName,
-                            mod=SMod,
-                            mod_opts=SModOpts,
-                            path_tokens=SPathTokens,
-                            bindings=SBindings}},
-                DispReq, MatchedSite, _NonMatchedPathTokens, Bindings, Context) ->
+    dispatch_name = SDispatchName,
+    mod = SMod,
+    mod_opts = SModOpts,
+    path_tokens = SPathTokens,
+    bindings = SBindings}},
+    DispReq, MatchedSite, _NonMatchedPathTokens, Bindings, Context) ->
     trace(DispReq#dispatch.tracer_pid,
-          SPathTokens,
-          rewrite_match,
-          [ {dispatch,SDispatchName},
-            {controller,SMod},
-            {controller_options,SModOpts},
-            {bindings,SBindings}
-          ]),
-    Bindings1 = [{zotonic_dispatch, SDispatchName},{zotonic_site, MatchedSite}|SBindings] ++ Bindings,
+        SPathTokens,
+        rewrite_match,
+        [{dispatch, SDispatchName},
+            {controller, SMod},
+            {controller_options, SModOpts},
+            {bindings, SBindings}
+        ]),
+    Bindings1 = [{zotonic_dispatch, SDispatchName}, {zotonic_site, MatchedSite} | SBindings] ++ Bindings,
     #dispatch_controller{
-        dispatch_rule=SDispatchName,
-        controller=SMod,
-        controller_options=SModOpts,
-        path_tokens=SPathTokens,
-        bindings=Bindings1,
-        context=maybe_set_language(Bindings1,Context)
+        dispatch_rule = SDispatchName,
+        controller = SMod,
+        controller_options = SModOpts,
+        path_tokens = SPathTokens,
+        bindings = Bindings1,
+        context = maybe_set_language(Bindings1, Context)
     };
-handle_rewrite({ok, #dispatch_redirect{location=Location, is_permanent=IsPermanent}},
-               _DispReq, _MatchedHost, _NonMatchedPathTokens, _Bindings, Context) ->
+handle_rewrite({ok, #dispatch_redirect{location = Location, is_permanent = IsPermanent}},
+    _DispReq, _MatchedHost, _NonMatchedPathTokens, _Bindings, Context) ->
     {redirect, z_context:site(Context), Location, IsPermanent};
 handle_rewrite(undefined, DispReq, MatchedHost, NonMatchedPathTokens, Bindings, Context) ->
     trace(DispReq#dispatch.tracer_pid, undefined, rewrite_nomatch, []),
@@ -714,14 +715,14 @@ language_from_bindings_1(false) ->
 find_no_host_match(DispReq) ->
     Sites = z_sites_manager:get_sites(),
     DispHost = #dispatch_host{
-                    host=DispReq#dispatch.host,
-                    path=DispReq#dispatch.path,
-                    method=DispReq#dispatch.method,
-                    protocol=DispReq#dispatch.protocol
-                },
+        host = DispReq#dispatch.host,
+        path = DispReq#dispatch.path,
+        method = DispReq#dispatch.method,
+        protocol = DispReq#dispatch.protocol
+    },
     case first_site_match(Sites, DispHost) of
         no_host_match -> find_dispatch_fallback();
-        Redirect-> Redirect
+        Redirect -> Redirect
     end.
 
 
@@ -735,9 +736,9 @@ find_dispatch_fallback() ->
 
 first_site_match([], _DispHost) ->
     no_host_match;
-first_site_match([Site|Sites], DispHost) ->
+first_site_match([Site | Sites], DispHost) ->
     case catch z_notifier:first(DispHost, z_context:new(Site)) of
-        {ok, #dispatch_redirect{location=PathOrURI, is_permanent=IsPermanent}} ->
+        {ok, #dispatch_redirect{location = PathOrURI, is_permanent = IsPermanent}} ->
             {redirect, Site, PathOrURI, IsPermanent};
         undefined ->
             first_site_match(Sites, DispHost);
@@ -747,10 +748,9 @@ first_site_match([Site|Sites], DispHost) ->
     end.
 
 
-
 %% @doc Collect all dispatch rules for all sites, normalize and filter them.
 collect_dispatchrules() ->
-    [ collect_dispatchrules(Site) || Site <- z_sites_manager:get_sites() ].
+    [collect_dispatchrules(Site) || Site <- z_sites_manager:get_sites()].
 
 %% @doc Collect all dispatch rules for all sites, normalize and filter them.
 collect_dispatchrules(Site) ->
@@ -774,8 +774,8 @@ fetch_dispatchinfo(Site) ->
     case z_dispatcher:dispatchinfo(Name) of
         {ok, {Site, Hostname, SmtpHost, Hostalias, Redirect, DispatchList}} ->
             {ok, #site_dispatch_list{
-                site=Site, hostname=Hostname, smtphost=SmtpHost, hostalias=Hostalias,
-                redirect=Redirect, dispatch_list=DispatchList
+                site = Site, hostname = Hostname, smtphost = SmtpHost, hostalias = Hostalias,
+                redirect = Redirect, dispatch_list = DispatchList
             }};
         {error, _} = Error ->
             Error
@@ -791,7 +791,7 @@ split_host(Host) when is_list(Host) ->
     split_host(unicode:characters_to_binary(Host));
 split_host(Host) when is_binary(Host) ->
     case binary:split(z_string:to_lower(Host), <<":">>) of
-        [H,P] -> {H, z_convert:to_integer(P)};
+        [H, P] -> {H, z_convert:to_integer(P)};
         [H] -> {H, 80}
     end.
 
@@ -826,7 +826,7 @@ trace_final(TracerPid, #dispatch_controller{
             {controller, Controller},
             {controller_options, ControllerOptions},
             {bindings, Bindings}
-          ]),
+        ]),
     Match;
 trace_final(_TracerPid, RedirectOrHandled) ->
     RedirectOrHandled.

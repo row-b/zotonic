@@ -44,7 +44,7 @@
 ]).
 
 -export([
-    start_link/1, 
+    start_link/1,
     init/1,
     handle_call/3,
     handle_cast/2,
@@ -76,7 +76,7 @@
     request_hostname = undefined :: binary() | undefined,
     request_san = [] :: list(binary()),
     request_start = undefined :: undefined | calendar:datetime(),
-    request_status = none :: none | requesting | ok | error, 
+    request_status = none :: none | requesting | ok | error,
     % Information about the current certificate
     cert_is_valid = false :: boolean(),
     cert_hostname = undefined :: binary() | undefined,
@@ -98,8 +98,8 @@ observe_ssl_options(#ssl_options{server_name=_NormalizedHostnameBin}, Context) -
                 {error, _} ->
                     undefined
             end
-        end, 
-        sni_ssl_letsencrypt, 
+        end,
+        sni_ssl_letsencrypt,
         ?SNI_CACHE_TIME,
         Context).
 
@@ -119,7 +119,7 @@ event(#submit{message = {request_cert, Args}}, Context) ->
             SANs1 = [ San || San <- SANs, San /= <<>> ],
             case gen_server:call(z_utils:name_for_site(?MODULE, Context), {cert_request, Hostname, SANs1}) of
                 ok ->
-                    z_render:update(Wrapper, 
+                    z_render:update(Wrapper,
                                     #render{
                                         template="_admin_ssl_letsencrypt_running.tpl",
                                         vars=[
@@ -129,20 +129,27 @@ event(#submit{message = {request_cert, Args}}, Context) ->
                                     Context);
                 {error, Reason} ->
                     lager:error("Could not start Letsencrypt cert request, error ~p", [Reason]),
-                    z_render:wire({alert, [
-                                    {title, ?__(<<"SSL Let’s Encrypt Certificate"/utf8>>, Context)},
-                                    {text, ?__("Could not start fetching the SSL certificate. Try again later.", Context)},
-                                    {button, ?__("Cancel", Context)}
-                                ]},
-                                Context)
-            end;
-        false ->
-            z_render:wire({alert, [
+                    z_render:wire(
+                        {alert, [
                             {title, ?__(<<"SSL Let’s Encrypt Certificate"/utf8>>, Context)},
-                            {text, ?__("You need to be an administrator to request certificates.", Context)},
+                            {text, ?__(
+                                "Could not start fetching the SSL certificate. Try again later.",
+                                Context
+                            )},
                             {button, ?__("Cancel", Context)}
                         ]},
-                        Context)
+                        Context
+                    )
+            end;
+        false ->
+            z_render:wire(
+                {alert, [
+                    {title, ?__(<<"SSL Let’s Encrypt Certificate"/utf8>>, Context)},
+                    {text, ?__("You need to be an administrator to request certificates.", Context)},
+                    {button, ?__("Cancel", Context)}
+                ]},
+                Context
+            )
     end;
 event(_Event, Context) ->
     Context.
@@ -209,13 +216,15 @@ handle_call(get_self_ping, _From, State) ->
     {reply, {ok, Ping}, State#state{self_ping = Ping}};
 handle_call({is_self_ping, SelfPing}, _From, #state{self_ping = Ping} = State) ->
     {reply, z_convert:to_binary(SelfPing) =:= Ping, State};
-handle_call({cert_request, _Hostname, _SANs}, _From, #state{request_letsencrypt_pid = Pid} = State) when is_pid(Pid) ->
+handle_call({cert_request, _Hostname, _SANs}, _From, #state{request_letsencrypt_pid = Pid} = State)
+    when is_pid(Pid) ->
     lager:error("Letsencrypt cert request whilst another request is running"),
     {reply, {error, busy}, State};
 handle_call({cert_request, Hostname, SANs}, _From, State) ->
     case start_cert_request(Hostname, SANs, State) of
         {ok, State1} ->
-            z_mqtt:publish(<<"~site/letsencrypt">>, <<"started">>, z_acl:sudo(z_context:new(State#state.site))),
+            Context = z_acl:sudo(z_context:new(State#state.site)),
+            z_mqtt:publish(<<"~site/letsencrypt">>, <<"started">>, Context),
             {reply, ok, State1};
         {error, Reason, State1} ->
             {reply, {error, Reason}, State1}
@@ -274,7 +283,8 @@ handle_cast(renewal_check, #state{cert_is_valid = true, cert_hostname = Hostname
             SANs1 = lists:usort(SANs) -- [Hostname],
             case start_cert_request(Hostname, SANs1, State) of
                 {ok, State1} ->
-                    z_mqtt:publish(<<"~site/letsencrypt">>, <<"started">>, z_acl:sudo(z_context:new(State#state.site))),
+                    z_mqtt:publish(<<"~site/letsencrypt">>, <<"started">>,
+                        z_acl:sudo(z_context:new(State#state.site))),
                     {noreply, State1};
                 {error, _Reason, State1} ->
                     {noreply, State1}
@@ -456,14 +466,17 @@ cert_dir(Context) ->
 cert_temp_dir(Context) ->
     filename:join([cert_dir(Context), "tmp"]).
 
--spec check_keyfile(string(), #context{}) -> {ok, string()} | {error, openssl|no_private_keys_found|need_rsa_private_key|term()}.
+-spec check_keyfile(string(), #context{}) ->
+    {ok, string()} | {error, openssl|no_private_keys_found|need_rsa_private_key|term()}.
 check_keyfile(KeyFile, Context) ->
     Site = z_context:site(Context),
     Hostname = z_context:hostname(Context),
     case file:read_file(KeyFile) of
         {ok, <<"-----BEGIN PRIVATE KEY", _/binary>>} ->
-            lager:error("[~p] Need RSA private key file for Letsencrypt. Use: `openssl rsa -in letsencrypt/letsencrypt.pem -out letsencrypt/letsencrypt.pem`",
-                        [Site, Hostname, Hostname]),
+            lager:error("[~p] Need RSA private key file for Letsencrypt. "
+                "Use: `openssl rsa -in letsencrypt/letsencrypt.pem -out letsencrypt/letsencrypt.pem`",
+                [Site, Hostname, Hostname]
+            ),
             {error, need_rsa_private_key};
         {ok, Bin} ->
             case public_key:pem_decode(Bin) of
@@ -480,7 +493,8 @@ check_keyfile(KeyFile, Context) ->
     end.
 
 %% @doc Ensure that we have a RSA key for Letsencrypt.
--spec ensure_key_file(#context{}) -> {ok, string()} | {error, openssl|no_private_keys_found|need_rsa_private_key|term()}.
+-spec ensure_key_file(#context{}) ->
+    {ok, string()} | {error, openssl|no_private_keys_found|need_rsa_private_key|term()}.
 ensure_key_file(Context) ->
     SSLDir = cert_dir(Context),
     KeyFile = filename:join(SSLDir, "letsencrypt_api.key"),

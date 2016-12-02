@@ -29,7 +29,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([start_link/0]).
 
--record(state, {port, executable, timers=[]}).
+-record(state, {port, executable, timers = []}).
 
 %% interface functions
 -export([
@@ -65,7 +65,7 @@ is_installed() ->
 %% @doc Initiates the server.
 init([Executable]) ->
     process_flag(trap_exit, true),
-    State = #state{executable=Executable},
+    State = #state{executable = Executable},
     os:cmd("killall fswatch"),
     {ok, State, 0}.
 
@@ -84,30 +84,30 @@ handle_cast(Message, State) ->
 
 
 %% @doc Reading a line from the fswatch program.
-handle_info({Port, {data, FilenameFlags}}, State=#state{port=Port, timers=Timers}) ->
+handle_info({Port, {data, FilenameFlags}}, State = #state{port = Port, timers = Timers}) ->
     Fs = extract_filename_verb(FilenameFlags),
-    {Timers1,_N1} = lists:foldl(
-                        fun({Filename, Verb}, {TimersAcc,N}) ->
-                            {z_filewatcher_handler:set_timer(Filename, Verb, TimersAcc, N), N+100}
-                        end,
-                        {Timers, 0},
-                        Fs),
-    {noreply, State#state{timers=Timers1}};
+    {Timers1, _N1} = lists:foldl(
+        fun({Filename, Verb}, {TimersAcc, N}) ->
+            {z_filewatcher_handler:set_timer(Filename, Verb, TimersAcc, N), N + 100}
+        end,
+        {Timers, 0},
+        Fs),
+    {noreply, State#state{timers = Timers1}};
 
 %% @doc Launch the actual filechanged notification
-handle_info({filechange, Verb, Filename}, State=#state{timers=Timers}) ->
+handle_info({filechange, Verb, Filename}, State = #state{timers = Timers}) ->
     z_filewatcher_handler:file_changed(Verb, Filename),
-    {noreply, State#state{timers=lists:keydelete(Filename, 1, Timers)}};
+    {noreply, State#state{timers = lists:keydelete(Filename, 1, Timers)}};
 
-handle_info({Port,{exit_status,Status}}, State=#state{port=Port}) ->
+handle_info({Port, {exit_status, Status}}, State = #state{port = Port}) ->
     lager:error("[fswatch] fswatch port closed with ~p, restarting in 5 seconds.", [Status]),
     {noreply, State, 5000};
 
-handle_info({'EXIT', Port, _}, State=#state{port=Port}) ->
+handle_info({'EXIT', Port, _}, State = #state{port = Port}) ->
     lager:error("[fswatch] fswatch port closed, restarting in 5 seconds."),
     {noreply, State, 5000};
 
-handle_info(timeout, #state{port=undefined} = State) ->
+handle_info(timeout, #state{port = undefined} = State) ->
     lager:info("[fswatch] Starting fswatch file monitor."),
     {noreply, start_fswatch(State)};
 handle_info(timeout, State) ->
@@ -123,10 +123,10 @@ handle_info(_Info, State) ->
 %% terminate. It should be the opposite of Module:init/1 and do any necessary
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
-terminate(_Reason, #state{port=undefined}) ->
+terminate(_Reason, #state{port = undefined}) ->
     ok;
-terminate(_Reason, #state{port=Port}) ->
-    catch erlang:port_close(Port),
+terminate(_Reason, #state{port = Port}) ->
+        catch erlang:port_close(Port),
     os:cmd("killall fswatch"),
     ok.
 
@@ -140,11 +140,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% support functions
 %%====================================================================
 
-start_fswatch(State=#state{executable=Executable}) ->
+start_fswatch(State = #state{executable = Executable}) ->
     % os:cmd("killall fswatch"),
-    Args = ["-0", "-x", "-r", "-L" | z_filewatcher_sup:watch_dirs() ],
+    Args = ["-0", "-x", "-r", "-L" | z_filewatcher_sup:watch_dirs()],
     Port = erlang:open_port({spawn_executable, Executable}, [{args, Args}, stream, exit_status, binary]),
-    State#state{port=Port}.
+    State#state{port = Port}.
 
 extract_filename_verb(Line) ->
     Lines = binary:split(Line, <<0>>, [global]),
@@ -153,23 +153,23 @@ extract_filename_verb(Line) ->
 split_line(<<>>, Acc) ->
     Acc;
 split_line(Line, Acc) ->
-	% get a file path that may include spaces
-	Filepath = get_filepath(Line),
-	% extract a verb from the line, while ignoring strings that are not verbs
-	[_|Flags] = binary:split(Line, <<" ">>, [global]),
-	Verb = extract_verb(Flags),
+    % get a file path that may include spaces
+    Filepath = get_filepath(Line),
+    % extract a verb from the line, while ignoring strings that are not verbs
+    [_ | Flags] = binary:split(Line, <<" ">>, [global]),
+    Verb = extract_verb(Flags),
     [{Filepath, Verb} | Acc].
 
 %% Remove verbs from line, preserve spaces
 get_filepath(Line) ->
-	Space = <<" ">>,
-	Parts = lists:foldl(fun(Part, Acc) ->
-		case extract_filepath(Part) of
-			<<>> -> Acc;
-			P -> <<Acc/binary, P/binary, Space/binary>>
-		end
-	end, <<>>, binary:split(Line, Space, [global])),
-	string:strip(unicode:characters_to_list(Parts), both, $ ).
+    Space = <<" ">>,
+    Parts = lists:foldl(fun(Part, Acc) ->
+        case extract_filepath(Part) of
+            <<>> -> Acc;
+            P -> <<Acc/binary, P/binary, Space/binary>>
+        end
+    end, <<>>, binary:split(Line, Space, [global])),
+    string:strip(unicode:characters_to_list(Parts), both, $ ).
 
 % Remove all known verbs; the remainder must be the file path
 % of course this breaks when new event names are added to fswatch
@@ -190,10 +190,10 @@ extract_filepath(<<"Link">>) -> <<>>;
 extract_filepath(F) -> F.
 
 extract_verb([]) -> modify;
-extract_verb([<<"Removed">>, <<"Renamed">> | _ ]) -> modify;
-extract_verb([<<"Created">>|_]) -> create;
-extract_verb([<<"Removed">>|_]) -> delete;
-extract_verb([<<"MovedFrom">>|_]) -> delete;
-extract_verb([<<"MovedTo">>|_]) -> create;
-extract_verb([<<"Renamed">>|_]) -> create;
-extract_verb([_|Flags]) -> extract_verb(Flags).
+extract_verb([<<"Removed">>, <<"Renamed">> | _]) -> modify;
+extract_verb([<<"Created">> | _]) -> create;
+extract_verb([<<"Removed">> | _]) -> delete;
+extract_verb([<<"MovedFrom">> | _]) -> delete;
+extract_verb([<<"MovedTo">> | _]) -> create;
+extract_verb([<<"Renamed">> | _]) -> create;
+extract_verb([_ | Flags]) -> extract_verb(Flags).

@@ -46,12 +46,12 @@
 %%% --------------------------------------------------------------------
 
 parse_pot(Fname) ->
-    parse_po_1(Fname, false).
+    parse_po1(Fname, false).
 
 parse_po(Fname) ->
-    parse_po_1(Fname, true).
+    parse_po1(Fname, true).
 
-parse_po_1(Fname, DropEmpty) ->
+parse_po1(Fname, DropEmpty) ->
     case file:read_file(Fname) of
         {ok, Bin} ->
             parse_po_bin(Bin, DropEmpty);
@@ -65,23 +65,23 @@ parse_po_bin(Bin) ->
 
 parse_po_bin(Bin, DropEmpty) ->
     lists:reverse(
-      lists:foldl(fun ({<<>>, R}, AccIn) ->
-                          [{?GETTEXT_HEADER_INFO, R}|AccIn];
-                      ({_, <<>>}, AccIn) when DropEmpty ->
-                          AccIn;
-                      (R, AccIn) ->
-                          [R|AccIn]
-                  end,
-                  [],
-                  parse_po_part(Bin))).
+        lists:foldl(fun({<<>>, R}, AccIn) ->
+            [{?GETTEXT_HEADER_INFO, R} | AccIn];
+            ({_, <<>>}, AccIn) when DropEmpty ->
+                AccIn;
+            (R, AccIn) ->
+                [R | AccIn]
+        end,
+            [],
+            parse_po_part(Bin))).
 
 parse_po_part(<<"msgid", T/binary>>) ->
     {Key, R0} = get_po_string(T),
     {Val, Rest} = get_msgstr(R0),
-    [{Key,Val} | parse_po_part(Rest)];
+    [{Key, Val} | parse_po_part(Rest)];
 parse_po_part(<<"#", T/binary>>) ->
     parse_po_part(skip_to_eol(T));
-parse_po_part(<<$\r,$\n, T/binary>>) ->
+parse_po_part(<<$\r, $\n, T/binary>>) ->
     parse_po_part(T);
 parse_po_part(<<$\n, T/binary>>) ->
     parse_po_part(T);
@@ -119,20 +119,23 @@ get_po_string(<<$\s, T/binary>>) -> get_po_string(T);
 get_po_string(<<$\r, T/binary>>) -> get_po_string(T);
 get_po_string(<<$\n, T/binary>>) -> get_po_string(T);
 get_po_string(<<$\t, T/binary>>) -> get_po_string(T);
-get_po_string(<<$", T/binary>>)  -> eat_string(T).
+get_po_string(<<$", T/binary>>) -> eat_string(T).
 
 eat_string(S) ->
     eat_string(S, <<>>).
 
-eat_string(<<$\\,$", T/binary>>, Acc)   -> eat_string(T, <<Acc/binary, $">>);   % unescape !
-eat_string(<<$\\,$\\ , T/binary>>, Acc) -> eat_string(T, <<Acc/binary, $\\>>);  % unescape !
-eat_string(<<$\\,$n , T/binary>>, Acc)  -> eat_string(T, <<Acc/binary, $\n>>);  % unescape !
-eat_string(<<$", T/binary>>, Acc)       -> eat_more(T, Acc);
-eat_string(<<H/utf8, T/binary>>, Acc)   -> eat_string(T, <<Acc/binary, H/utf8>>).
+eat_string(<<$\\, $", T/binary>>, Acc) ->
+    eat_string(T, <<Acc/binary, $">>);   % unescape !
+eat_string(<<$\\, $\\, T/binary>>, Acc) ->
+    eat_string(T, <<Acc/binary, $\\>>);  % unescape !
+eat_string(<<$\\, $n, T/binary>>, Acc) ->
+    eat_string(T, <<Acc/binary, $\n>>);  % unescape !
+eat_string(<<$", T/binary>>, Acc) -> eat_more(T, Acc);
+eat_string(<<H/utf8, T/binary>>, Acc) -> eat_string(T, <<Acc/binary, H/utf8>>).
 
 eat_more(<<$\s, T/binary>>, Acc) -> eat_more(T, Acc);
 eat_more(<<$\n, T/binary>>, Acc) -> eat_more(T, Acc);
 eat_more(<<$\r, T/binary>>, Acc) -> eat_more(T, Acc);
 eat_more(<<$\t, T/binary>>, Acc) -> eat_more(T, Acc);
-eat_more(<<$", T/binary>>, Acc)  -> eat_string(T, Acc);
-eat_more(T, Acc)       -> {Acc, T}.
+eat_more(<<$", T/binary>>, Acc) -> eat_string(T, Acc);
+eat_more(T, Acc) -> {Acc, T}.

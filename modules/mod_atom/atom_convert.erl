@@ -21,8 +21,8 @@
 -author("Arjan Scherpenisse <arjan@scherpenisse.net>").
 
 -export([resource_to_atom/2,
-         atom_to_resource/1
-        ]).
+    atom_to_resource/1
+]).
 
 
 -include_lib("xmerl/include/xmerl.hrl").
@@ -35,32 +35,32 @@
 resource_to_atom(RscExport, Context) ->
     Rsc = proplists:get_value(rsc, RscExport),
     Content0 = [
-                {id, [binary_to_list(proplists:get_value(uri, RscExport))]},
-                {title, [{type, "text"}], [binary_to_list(z_trans:trans(proplists:get_value(title, Rsc), Context))]},
-                {published, [z_convert:to_isotime(proplists:get_value(publication_start, Rsc))]},
-                {updated, [z_convert:to_isotime(proplists:get_value(modified, Rsc))]}
-               ],
+        {id, [binary_to_list(proplists:get_value(uri, RscExport))]},
+        {title, [{type, "text"}], [binary_to_list(z_trans:trans(proplists:get_value(title, Rsc), Context))]},
+        {published, [z_convert:to_isotime(proplists:get_value(publication_start, Rsc))]},
+        {updated, [z_convert:to_isotime(proplists:get_value(modified, Rsc))]}
+    ],
 
     Content1 = case empty(Body = proplists:get_value(body, Rsc)) of
-                   true ->
-                       Content0;
-                   false ->
-                       Content0 ++ [{content, [{type, "html"}], [binary_to_list(z_trans:trans(Body, Context))]}]
-               end,
+        true ->
+            Content0;
+        false ->
+            Content0 ++ [{content, [{type, "html"}], [binary_to_list(z_trans:trans(Body, Context))]}]
+    end,
 
     Content2 = case empty(Summary = proplists:get_value(summary, Rsc)) of
-                   true ->
-                       Content1;
-                   false ->
-                       Content1 ++ [{summary, [{type, "text"}], [binary_to_list(z_trans:trans(Summary, Context))]}]
-               end,
+        true ->
+            Content1;
+        false ->
+            Content1 ++ [{summary, [{type, "text"}], [binary_to_list(z_trans:trans(Summary, Context))]}]
+    end,
 
     Content3 = Content2 ++ author_element(RscExport),
 
-    RootElem = #xmlElement{name=entry,
-                           namespace=#xmlNamespace{default=?ATOM_NS},
-                           attributes=[#xmlAttribute{name=xmlns, value=?ATOM_NS}],
-                           content=Content3},
+    RootElem = #xmlElement{name = entry,
+        namespace = #xmlNamespace{default = ?ATOM_NS},
+        attributes = [#xmlAttribute{name = xmlns, value = ?ATOM_NS}],
+        content = Content3},
     lists:flatten(xmerl:export_simple([RootElem], xmerl_xml)).
 
 
@@ -71,18 +71,21 @@ author_element(Export) ->
         X when X =:= undefined orelse X =:= [] ->
             [];
         Edges ->
-            [#xmlElement{name=author, content=[
-                         #xmlElement{name=name, content=[#xmlText{value=proplists:get_value(object_title, E)}]},
-                         #xmlElement{name=uri, content=[#xmlText{value=proplists:get_value(object_uri, E)}]}]}
-             || E <- filter_edges(Edges, <<"author">>)]
+            [#xmlElement{
+                name = author,
+                content = [
+                    #xmlElement{name = name, content = [#xmlText{value = proplists:get_value(object_title, E)}]},
+                    #xmlElement{name = uri, content = [#xmlText{value = proplists:get_value(object_uri, E)}]}
+                ]
+            } || E <- filter_edges(Edges, <<"author">>)]
     end.
 
 
 %% @doc Given a list of edges, filter out the ones which have the given predicate name.
 %% @spec filter_edges([edge()], atom()) -> [edge()]
 filter_edges(Edges, PredicateName) ->
-    lists:filter(fun(X) -> proplists:get_value(predicate_name, X) == PredicateName end, Edges).
-
+    lists:filter(fun(X) ->
+        proplists:get_value(predicate_name, X) == PredicateName end, Edges).
 
 
 %% @doc Export a resource to Atom XML.
@@ -91,44 +94,44 @@ atom_to_resource(Xml) when is_binary(Xml) ->
     atom_to_resource(binary_to_list(Xml));
 
 atom_to_resource(Xml) ->
-    {RootElem,_} = xmerl_scan:string(Xml),
+    {RootElem, _} = xmerl_scan:string(Xml),
 
     %% Atom required elements
     RscUri = case xmerl_xpath:string("/entry/id", RootElem) of
-                 [] -> undefined;
-                 [#xmlElement{content=Uri}] ->
-                     list_to_binary(collapse_xmltext(Uri))
-             end,
+        [] -> undefined;
+        [#xmlElement{content = Uri}] ->
+            list_to_binary(collapse_xmltext(Uri))
+    end,
 
     RscProps1 = case xmerl_xpath:string("/entry/title", RootElem) of
-                 [] -> [{title, <<>>}];
-                 [Title] ->
-                     [{title, get_xmltext(Title, true)}]
-             end,
+        [] -> [{title, <<>>}];
+        [Title] ->
+            [{title, get_xmltext(Title, true)}]
+    end,
 
     RscProps2 = case xmerl_xpath:string("/entry/updated", RootElem) of
-                 [] -> RscProps1;
-                 [#xmlElement{content=Updated}] ->
-                     RscProps1 ++ [{modified, z_convert:to_datetime(collapse_xmltext(Updated))}]
-             end,
+        [] -> RscProps1;
+        [#xmlElement{content = Updated}] ->
+            RscProps1 ++ [{modified, z_convert:to_datetime(collapse_xmltext(Updated))}]
+    end,
 
     RscProps3 = case xmerl_xpath:string("/entry/published", RootElem) of
-                 [] -> RscProps2;
-                 [#xmlElement{content=Published}] ->
-                     RscProps2 ++ [{publication_start, z_convert:to_datetime(collapse_xmltext(Published))}]
-             end,
+        [] -> RscProps2;
+        [#xmlElement{content = Published}] ->
+            RscProps2 ++ [{publication_start, z_convert:to_datetime(collapse_xmltext(Published))}]
+    end,
 
     RscProps4 = case xmerl_xpath:string("/entry/summary", RootElem) of
-               [] -> RscProps3;
-               [Summary] ->
-                   RscProps3 ++ [{summary, get_xmltext(Summary, true)}]
-           end,
+        [] -> RscProps3;
+        [Summary] ->
+            RscProps3 ++ [{summary, get_xmltext(Summary, true)}]
+    end,
 
     RscProps5 = case xmerl_xpath:string("/entry/content", RootElem) of
-               [] -> RscProps4;
-               [Body] ->
-                   RscProps4 ++ [{body, get_xmltext(Body, false)}]
-           end,
+        [] -> RscProps4;
+        [Body] ->
+            RscProps4 ++ [{body, get_xmltext(Body, false)}]
+    end,
 
     %% Edges
 
@@ -140,19 +143,19 @@ atom_to_resource(Xml) ->
     %% Medium
 
     Medium = case xmerl_xpath:string("/entry/link[@rel=\"enclosure\"]", RootElem) of
-               [] -> undefined;
-               [Enc] ->
-                     [{mime, xml_attrib(type, Enc)},
-                      {url, xml_attrib(href, Enc)}]
-           end,
+        [] -> undefined;
+        [Enc] ->
+            [{mime, xml_attrib(type, Enc)},
+                {url, xml_attrib(href, Enc)}]
+    end,
 
     %% Combine all into rsc_export() structure
     Import = [{uri, RscUri},
-              {rsc, RscProps5},
-              {medium, Medium},
-              {edges, Edges2}
-             ],
-    lists:filter(fun({_,L}) -> not(L == []) end, Import).
+        {rsc, RscProps5},
+        {medium, Medium},
+        {edges, Edges2}
+    ],
+    lists:filter(fun({_, L}) -> not(L == []) end, Import).
 
 
 %% @doc Given an Atom entry, get a list of all the authors formatted as author edges.
@@ -162,20 +165,22 @@ find_author(Elem) ->
         [] -> []; % no author found
         Authors ->
             lists:map(fun(A) ->
-                              Name = case xmerl_xpath:string("/author/name", A) of
-                                         [] -> <<>>;
-                                         [#xmlElement{content=[#xmlText{value=N}]}] ->
-                                             list_to_binary(N)
-                                     end,
-                              Uri = case xmerl_xpath:string("/author/uri", A) of
-                                        [] -> <<>>;
-                                        [#xmlElement{content=[#xmlText{value=U}]}] ->
-                                            list_to_binary(U)
-                                    end,
-                              [{predicate_name, <<"author">>},
-                               {object_uri, Uri},
-                               {object_title, Name}]
-                      end, Authors)
+                Name = case xmerl_xpath:string("/author/name", A) of
+                    [] -> <<>>;
+                    [#xmlElement{content = [#xmlText{value = N}]}] ->
+                        list_to_binary(N)
+                end,
+                Uri = case xmerl_xpath:string("/author/uri", A) of
+                    [] -> <<>>;
+                    [#xmlElement{content = [#xmlText{value = U}]}] ->
+                        list_to_binary(U)
+                end,
+                [{predicate_name, <<"author">>},
+                    {object_uri, Uri},
+                    {object_title, Name}]
+            end,
+            Authors
+            )
     end.
 
 
@@ -184,19 +189,20 @@ find_author(Elem) ->
 find_depiction(Elem) ->
     case xmerl_xpath:string("/entry/link[@rel=\"enclosure\"]", Elem) of
         [] -> []; % no depiction found
-        [Enclosure|_] ->
-            [ [{predicate_name, <<"depiction">>},
-               {object_uri, xml_attrib(href, Enclosure)},
-               {object_title, xml_attrib(title, Enclosure)}
-               ] ]
+        [Enclosure | _] ->
+            [[{predicate_name, <<"depiction">>},
+                {object_uri, xml_attrib(href, Enclosure)},
+                {object_title, xml_attrib(title, Enclosure)}
+            ]]
     end.
 
 %% @doc Given an XML element, get the value of an attribute.
 %% @spec xml_attrib(atom(), #xmlElement{}) -> binary() | undefined
-xml_attrib(Name, #xmlElement{attributes=Attrs}) ->
-    case lists:filter(fun(#xmlAttribute{name=Nm}) -> Nm =:= Name end, Attrs) of
+xml_attrib(Name, #xmlElement{attributes = Attrs}) ->
+    case lists:filter(fun(#xmlAttribute{name = Nm}) ->
+        Nm =:= Name end, Attrs) of
         [] -> undefined;
-        [#xmlAttribute{value=Value}|_] ->
+        [#xmlAttribute{value = Value} | _] ->
             list_to_binary(Value)
     end.
 
@@ -209,24 +215,24 @@ collapse_xmltext(Content) ->
 %% @doc Given an element, get its XML text. If "strip" attribute is
 %% set, text is stripped of (x)html constructs if type attribute is
 %% html or xhtml.
-get_xmltext(Element=#xmlElement{content=Content}, Strip) ->
+get_xmltext(Element = #xmlElement{content = Content}, Strip) ->
     Text = collapse_xmltext(Content),
     Text2 = case Strip of
-                false -> Text;
-                true ->
-                    case xml_attrib(type, Element) of
-                        B when B =:= <<"html">> orelse B =:= <<"xhtml">> ->
-                            %% Strip tags
-                            z_html:strip(Text);
-                        B2 when B2 =:= undefined orelse B2 =:= <<"text">> ->
-                            %% Do not strip.
-                            Text
-                    end
-            end,
+        false -> Text;
+        true ->
+            case xml_attrib(type, Element) of
+                B when B =:= <<"html">> orelse B =:= <<"xhtml">> ->
+                    %% Strip tags
+                    z_html:strip(Text);
+                B2 when B2 =:= undefined orelse B2 =:= <<"text">> ->
+                    %% Do not strip.
+                    Text
+            end
+    end,
     z_convert:to_binary(Text2).
 
 
 empty(<<>>) -> true;
-empty([])  -> true;
+empty([]) -> true;
 empty(undefined) -> true;
 empty(_) -> false.

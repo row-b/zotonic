@@ -33,7 +33,7 @@
 
 -include("zotonic.hrl").
 
--export ([
+-export([
     render/2,
     render_actions/4,
     render_to_iolist/2,
@@ -113,7 +113,8 @@
 ]).
 
 
-%% @doc Render adds output to the render field of the context state, makes sure that the added output is an iolist
+%% @doc Render adds output to the render field of the context state, makes sure
+%% that the added output is an iolist
 render(undefined, Context) ->
     Context;
 render(<<>>, Context) ->
@@ -121,52 +122,54 @@ render(<<>>, Context) ->
 render([], Context) ->
     Context;
 render({script, _Args} = Script, Context) ->
-    %% Renders the script tag - might not be correct as it adds everything collected in Context and not what was collected
-    %% in the added iolist().  So maybe we should just ignore the {script} tag here.
-    %% When the script tag should be rendered then it is better to call z_context:output/2 instead of z_render:render/2.
-    {Html,Context1} = z_context:output([Script], Context),
-    Context1#context{render=[Context1#context.render, Html]};
+    %% Renders the script tag - might not be correct as it adds everything
+    %% collected in Context and not what was collected in the added iolist().
+    %% So maybe we should just ignore the {script} tag here. When the script tag
+    %% should be rendered then it is better to call z_context:output/2 instead
+    %% of z_render:render/2.
+    {Html, Context1} = z_context:output([Script], Context),
+    Context1#context{render = [Context1#context.render, Html]};
 render(#context{} = C, Context) ->
     C1 = render(C#context.render, Context),
     z_context:merge_scripts(C, C1);
 render({javascript, Script}, Context) ->
     z_script:add_content_script(Script, Context);
 render(B, Context) when is_binary(B) ->
-    Context#context{render=[Context#context.render, B]};
+    Context#context{render = [Context#context.render, B]};
 render(N, Context) when is_integer(N), N >= 0, N =< 255 ->
-    Context#context{render=[Context#context.render, N]};
+    Context#context{render = [Context#context.render, N]};
 render(N, Context) when is_integer(N) ->
-    Context#context{render=[Context#context.render, z_convert:to_binary(N)]};
+    Context#context{render = [Context#context.render, z_convert:to_binary(N)]};
 render(A, Context) when is_atom(A) ->
-    Context#context{render=[Context#context.render, atom_to_list(A)]};
-render(List=[H|_], Context) when is_integer(H) orelse is_binary(H) ->
+    Context#context{render = [Context#context.render, atom_to_list(A)]};
+render(List = [H | _], Context) when is_integer(H) orelse is_binary(H) ->
     %% Optimization for rendering lists of characters, aka strings
-    F = fun (C) ->
-            is_integer(C) orelse is_binary(C)
-        end,
-    {String,Rest} = lists:splitwith(F,List),
-    Context1 = Context#context{render=[Context#context.render, String]},
+    F = fun(C) ->
+        is_integer(C) orelse is_binary(C)
+    end,
+    {String, Rest} = lists:splitwith(F, List),
+    Context1 = Context#context{render = [Context#context.render, String]},
     render(Rest, Context1);
 render({trans, _} = Tr, Context) ->
     render(z_trans:lookup_fallback(Tr, Context), Context);
-render({{_,_,_},{_,_,_}} = D, Context) ->
+render({{_, _, _}, {_, _, _}} = D, Context) ->
     render(filter_stringify:stringify(D, Context), Context);
 render(F, Context) when is_float(F) ->
     render(filter_stringify:stringify(F, Context), Context);
 render(T, Context) when is_tuple(T) ->
     render(iolist_to_binary(io_lib:format("~p", [T])), Context);
-render([H|T], Context) ->
+render([H | T], Context) ->
     Context1 = render(H, Context),
     render(T, Context1).
 
 
-%% @doc Render adds output to the render field of the context state. Do update the context for
-%%      possible changes in scripts etc.
+%% @doc Render adds output to the render field of the context state. Do update
+%% the context for possible changes in scripts etc.
 %% @spec render_to_iolist(TemplateOutput, Context1) -> {iolist(), Context2}
 render_to_iolist(Ts, Context) ->
-    Context1 = Context#context{render=[]},
+    Context1 = Context#context{render = []},
     Context2 = render(Ts, Context1),
-    {Context2#context.render, Context2#context{render=Context#context.render}}.
+    {Context2#context.render, Context2#context{render = Context#context.render}}.
 
 
 %%% RENDER ACTIONS %%%
@@ -175,85 +178,87 @@ render_actions(_, _, undefined, Context) ->
     {[], Context};
 render_actions(_, _, [], Context) ->
     {[], Context};
-render_actions(TriggerId, TargetId, [H|T], Context) ->
+render_actions(TriggerId, TargetId, [H | T], Context) ->
     {Script1, Context1} = render_actions(TriggerId, TargetId, H, Context),
     {Script2, Context2} = render_actions(TriggerId, TargetId, T, Context1),
-    {[Script1,Script2], Context2};
+    {[Script1, Script2], Context2};
 render_actions(TriggerId, TargetId, {Action, Args}, Context) ->
     case z_utils:is_true(proplists:get_value(show_if, Args, true)) of
         true ->
             Trigger = proplists:get_value(trigger, Args, TriggerId),
-            Target = proplists:get_value(target,  Args, TargetId),
+            Target = proplists:get_value(target, Args, TargetId),
             case z_module_indexer:find(action, Action, Context) of
-                {ok, #module_index{erlang_module=ActionModule}} ->
+                {ok, #module_index{erlang_module = ActionModule}} ->
                     ActionModule:render_action(Trigger, Target, Args, Context);
                 {error, enoent} ->
                     lager:info("No action enabled for \"~p\"", [Action]),
                     {[], Context}
             end;
         false ->
-            {[],Context}
+            {[], Context}
     end.
 
 
-%% @spec validator(TriggerID::string(), TargetID::string(), Validator::#validator{}, Context::#context{}) -> #context{}
-%% @doc Add an input validator to the list of known validators, used when rendering custom validators
+%% @doc Add an input validator to the list of known validators, used when
+%% rendering custom validators
 validator(TriggerId, TargetId, Validator, Context) ->
     V = {TriggerId, TargetId, Validator},
     case lists:member(V, Context#context.validators) of
         true -> Context;
-        false -> Context#context{validators=[V|Context#context.validators]}
+        false -> Context#context{validators = [V | Context#context.validators]}
     end.
 
 
-%% @doc Render a validator to the correct javascript.  Args are all arguments of the validator scomp.
-%%      This renders an allocation of the initial validator and then appends all validations.
-%%      'type' holds multiple validations.  Validations are of the form:  {validator, [Args]}
+%% @doc Render a validator to the correct javascript.  Args are all arguments of
+%% the validator scomp. This renders an allocation of the initial validator and
+%% then appends all validations. 'type' holds multiple validations.
+%% Validations are of the form:  {validator, [Args]}
 render_validator(TriggerId, TargetId, Args, Context) ->
     Validations = proplists:get_all_values(type, Args),
-    Trigger     = proplists:get_value(trigger, Args, TriggerId),
-    Target      = proplists:get_value(target,  Args, TargetId),
-    Name        = proplists:get_value(name,  Args, Target),
+    Trigger = proplists:get_value(trigger, Args, TriggerId),
+    Target = proplists:get_value(target, Args, TargetId),
+    Name = proplists:get_value(name, Args, Target),
 
     % The validator object, can have parameters for failureMessage.
-    VldOptions  = z_utils:js_object(Args, [type,trigger,id,target], Context),
-    VldScript   = [<<"z_init_validator(\"">>,Trigger,<<"\", ">>,VldOptions,<<");\n">>],
+    VldOptions = z_utils:js_object(Args, [type, trigger, id, target], Context),
+    VldScript = [<<"z_init_validator(\"">>, Trigger, <<"\", ">>, VldOptions, <<");\n">>],
 
     % Now render and append all individual validations
     % The Postback contains all information to perform a server side validation
     % The Script is the script that ties the client side validation to the element
-    RValidation = fun({VType,VArgs}, {PostbackAcc,ScriptAcc,Ctx}) ->
-                    VMod = case proplists:get_value(delegate, VArgs) of
-                                undefined ->
-                                    case z_module_indexer:find(validator, VType, Context) of
-                                        {ok, #module_index{erlang_module=Mod}} ->
-                                            {ok, Mod};
-                                        {error, enoent} ->
-                                            lager:info("No validator found for \"~p\"", [VType])
-                                    end;
-                                Delegate  ->
-                                    {ok, Delegate}
-                             end,
-                     case VMod of
-                        {ok, ValidatorModule} ->
-                            ValidatorModuleAsAtom = z_convert:to_atom(ValidatorModule),
-                            {VPostback,VScript,VCtx} = ValidatorModuleAsAtom:render_validator(VType, Trigger, Target, VArgs, Ctx),
-                            {[{VType,ValidatorModuleAsAtom,VPostback}|PostbackAcc],[VScript|ScriptAcc],VCtx};
-                        _ ->
-                            {PostbackAcc, ScriptAcc, Ctx}
-                     end
-                 end,
+    RValidation = fun({VType, VArgs}, {PostbackAcc, ScriptAcc, Ctx}) ->
+        VMod = case proplists:get_value(delegate, VArgs) of
+            undefined ->
+                case z_module_indexer:find(validator, VType, Context) of
+                    {ok, #module_index{erlang_module = Mod}} ->
+                        {ok, Mod};
+                    {error, enoent} ->
+                        lager:info("No validator found for \"~p\"", [VType])
+                end;
+            Delegate ->
+                {ok, Delegate}
+        end,
+        case VMod of
+            {ok, ValidatorModule} ->
+                ValidatorModuleAsAtom = z_convert:to_atom(ValidatorModule),
+                {VPostback, VScript, VCtx} = ValidatorModuleAsAtom:render_validator(
+                    VType, Trigger, Target, VArgs, Ctx
+                ),
+                {[{VType, ValidatorModuleAsAtom, VPostback} | PostbackAcc], [VScript | ScriptAcc], VCtx};
+            _ ->
+                {PostbackAcc, ScriptAcc, Ctx}
+        end
+    end,
 
-    {Postback,Append,Context1} = lists:foldl(RValidation, {[],[],Context}, Validations),
+    {Postback, Append, Context1} = lists:foldl(RValidation, {[], [], Context}, Validations),
     case Postback of
         [] ->
-            {[VldScript|Append], Context1};
+            {[VldScript | Append], Context1};
         _ ->
-            Pickled  = z_utils:pickle({Trigger,Name,Postback}, Context1),
-            PbScript = [<<"z_set_validator_postback('">>,Trigger,<<"', '">>, Pickled, <<"');\n">>],
-            {[PbScript,VldScript|Append], Context1}
+            Pickled = z_utils:pickle({Trigger, Name, Postback}, Context1),
+            PbScript = [<<"z_set_validator_postback('">>, Trigger, <<"', '">>, Pickled, <<"');\n">>],
+            {[PbScript, VldScript | Append], Context1}
     end.
-
 
 
 %%% AJAX UPDATES %%%
@@ -310,10 +315,10 @@ appear_after(TargetId, Html, Context) ->
 update_iframe(IFrameId, Html, Context) ->
     {Html1, Context1} = render_html(Html, Context),
     Update = [
-        <<"z_update_iframe('">>,IFrameId,
+        <<"z_update_iframe('">>, IFrameId,
         <<"','">>, z_utils:js_escape(Html1), <<"');">>
     ],
-    Context1#context{updates=[{Update}|Context1#context.updates]}.
+    Context1#context{updates = [{Update} | Context1#context.updates]}.
 
 %% @doc Set the contents of all elements matching the css selector to the the html fragment
 update_selector(CssSelector, Html, Context) ->
@@ -367,10 +372,11 @@ set_value_selector(CssSelector, Value, Context) ->
 update_context(CssSelector, Html, Function, AfterEffects, Context) ->
     {Html1, Context1} = render_html(Html, Context),
     Update = update_js(CssSelector, Html1, Function, AfterEffects),
-    Context1#context{updates=[{Update}|Context1#context.updates]}.
+    Context1#context{updates = [{Update} | Context1#context.updates]}.
 
 
-%% @doc Set the contents of all elements matching the css selector to the the html fragment
+%% @doc Set the contents of all elements matching the css selector to the the
+%% HTML fragment
 update_selector_js(CssSelector, Html) ->
     update_js(CssSelector, Html, <<"html">>, <<".widgetManager()">>).
 
@@ -416,26 +422,26 @@ update_js(CssSelector, Html, <<"val">>, AfterEffects) ->
 update_js(CssSelector, Html, <<"replaceWith">>, AfterEffects) ->
     update_js_selector_first(CssSelector, Html, <<"replaceWith">>, AfterEffects);
 update_js(CssSelector, Html, Function, AfterEffects) ->
-    [ <<"z_text_to_nodes(\"">>, z_utils:js_escape(Html), $", $),
-      $., Function, $(, quote_css_selector(CssSelector), $),
-      AfterEffects,
-      $;].
+    [<<"z_text_to_nodes(\"">>, z_utils:js_escape(Html), $", $),
+        $., Function, $(, quote_css_selector(CssSelector), $),
+        AfterEffects,
+        $;].
 
 update_js_selector_first(CssSelector, Html, Function, AfterEffects) ->
-    [ $$, $(, quote_css_selector(CssSelector),
-      <<").">>, Function, <<"(\"">>, z_utils:js_escape(Html), $", $),
-      AfterEffects,
-      $;].
+    [$$, $(, quote_css_selector(CssSelector),
+        <<").">>, Function, <<"(\"">>, z_utils:js_escape(Html), $", $),
+        AfterEffects,
+        $;].
 
-    render_html(#render{template=Template, is_all=All, vars=Vars}, Context) ->
-        render_html_opt_all(z_convert:to_bool(All), Template, Vars, Context);
-    render_html(undefined, Context) ->
-        {"", Context};
-    render_html(Html, Context) when is_binary(Html) ->
-        {Html, Context};
-    render_html(Html, Context) ->
-        {Html1, Context1} = render_to_iolist(Html, Context),
-        {iolist_to_binary(Html1), Context1}.
+render_html(#render{template = Template, is_all = All, vars = Vars}, Context) ->
+    render_html_opt_all(z_convert:to_bool(All), Template, Vars, Context);
+render_html(undefined, Context) ->
+    {"", Context};
+render_html(Html, Context) when is_binary(Html) ->
+    {Html, Context};
+render_html(Html, Context) ->
+    {Html1, Context1} = render_to_iolist(Html, Context),
+    {iolist_to_binary(Html1), Context1}.
 
 
 render_html_opt_all(false, Template, Vars, Context) ->
@@ -443,7 +449,7 @@ render_html_opt_all(false, Template, Vars, Context) ->
     {iolist_to_binary(Html), Context1};
 render_html_opt_all(true, Template, Vars, Context) ->
     Templates = z_module_indexer:find_all(template, Template, Context),
-    Html = [ z_template:render(Tpl, Vars, Context) || Tpl <- Templates ],
+    Html = [z_template:render(Tpl, Vars, Context) || Tpl <- Templates],
     render_html(Html, Context).
 
 
@@ -453,21 +459,21 @@ dialog(Title, Template, Vars, Context) ->
     {Html, Context1} = z_template:render_to_iolist(Template, Vars, Context),
     Args = [{title, z_trans:lookup_fallback(Title, Context)}, {text, Html}],
     Args1 = case proplists:get_value(width, Vars) of
-                undefined -> Args;
-                Width -> [{width, Width} | Args]
-            end,
+        undefined -> Args;
+        Width -> [{width, Width} | Args]
+    end,
     Args2 = case proplists:get_value(class, Vars) of
-                undefined -> Args1;
-                Class -> [{addclass, Class} | Args1]
-            end,
+        undefined -> Args1;
+        Class -> [{addclass, Class} | Args1]
+    end,
     Args3 = case proplists:get_value(backdrop, Vars) of
-                undefined -> Args2;
-                Backdrop -> [{backdrop, Backdrop} | Args2]
-            end,
+        undefined -> Args2;
+        Backdrop -> [{backdrop, Backdrop} | Args2]
+    end,
     Args4 = case proplists:get_value(center, Vars) of
-                undefined -> Args3;
-                Center -> [{center, Center} | Args3]
-            end,
+        undefined -> Args3;
+        Center -> [{center, Center} | Args3]
+    end,
     z_render:wire({dialog, Args4}, Context1).
 
 dialog_close(Context) ->
@@ -475,7 +481,7 @@ dialog_close(Context) ->
 
 overlay(Template, Vars, Context) ->
     {Html, Context1} = z_template:render_to_iolist(Template, Vars, Context),
-    Script = [<<"z_dialog_overlay_open(">>, z_utils:js_object([{html, Html}], Context1), $), $; ],
+    Script = [<<"z_dialog_overlay_open(">>, z_utils:js_object([{html, Html}], Context1), $), $;],
     z_render:wire({script, [{script, Script}]}, Context1).
 
 overlay_close(Context) ->
@@ -491,43 +497,42 @@ growl(Text, Type, Stay, Context) ->
     z_render:wire({growl, [{text, Text}, {type, Type}, {stay, Stay}]}, Context).
 
 
-
 %%% POSTBACK ENCODING %%%
 
 %% @doc Make an encoded string containing information which module and function to call.
 make_postback_info(Tag, EventType, TriggerId, TargetId, Delegate, Context) ->
     Delegate1 = case Delegate of
-                    undefined -> z_context:get_controller_module(Context);
-                    _         -> z_convert:to_atom(Delegate)
-                end,
+        undefined -> z_context:get_controller_module(Context);
+        _ -> z_convert:to_atom(Delegate)
+    end,
     PostbackInfo = {EventType, TriggerId, TargetId, Tag, Delegate1},
     z_utils:pickle(PostbackInfo, Context).
 
 
-%% @doc Make a javascript to call the postback, posting an encoded string containing callback information.
-%% The PostbackTag is send to the server, EventType is normally the atom 'postback'.
-%% @spec make_postback(PostbackTag, EventType, TriggerId, TargetId, Delegate, Context) -> {JavascriptString, PickledPostback}
+%% @doc Make a javascript to call the postback, posting an encoded string
+%% containing callback information. %% The PostbackTag is send to the server,
+%% EventType is normally the atom 'postback'.
 make_postback(PostbackTag, EventType, TriggerId, TargetId, Delegate, Context) ->
     make_postback(PostbackTag, EventType, TriggerId, TargetId, Delegate, [], Context).
 
 make_postback(undefined, _EventType, _TriggerId, _TargetId, _Delegate, _QArgs, _Context) ->
-    {[],[]};
+    {[], []};
 make_postback(PostbackTag, EventType, TriggerId, TargetId, Delegate, QArgs, Context) ->
     PickledPostbackInfo = make_postback_info(PostbackTag, EventType, TriggerId, TargetId, Delegate, Context),
     {ZEvtArgsPre, ZEvtArgs} = make_postback_zevtargs(QArgs),
     {[
         ZEvtArgsPre,
         <<"z_queue_postback(">>,
-            postback_trigger_id(TriggerId),
-            <<", '">>,PickledPostbackInfo,
-            <<"', ">>, ZEvtArgs,
-            <<");">>
-     ],
-     PickledPostbackInfo}.
+        postback_trigger_id(TriggerId),
+        <<", '">>, PickledPostbackInfo,
+        <<"', ">>, ZEvtArgs,
+        <<");">>
+    ],
+        PickledPostbackInfo}.
 
 postback_trigger_id(undefined) -> <<"undefined">>;
 postback_trigger_id(A) when is_atom(A) -> [$', atom_to_list(A), $'];
-postback_trigger_id([32|_CssSel]) -> <<"$(this).attr('id')">>;
+postback_trigger_id([32 | _CssSel]) -> <<"$(this).attr('id')">>;
 postback_trigger_id(L) -> [$', L, $'].
 
 make_postback_zevtargs([]) ->
@@ -539,7 +544,12 @@ make_postback_zevtargs(QArgs) when is_list(QArgs) ->
             [
                 begin
                     QArgB = z_convert:to_binary(QArg),
-                    [<<"zEvtQArgs.push({name:$('#">>, QArgB, <<"').attr('name'), value:$('#">>,QArgB,<<"').val()});">>]
+                    [
+                        <<"zEvtQArgs.push({name:$('#">>, QArgB,
+                        <<"').attr('name'), value:$('#">>,
+                        QArgB,
+                        <<"').val()});">>
+                    ]
                 end
                 || QArg <- QArgs
             ]
@@ -573,12 +583,12 @@ wire(TriggerId, undefined, Actions, Context) ->
 wire(_TriggerId, _TargetId, [], Context) ->
     Context;
 wire(TriggerId, TargetId, Actions, Context) ->
-    Context#context{actions=[{TriggerId, TargetId, flatten_list(Actions)}|Context#context.actions]}.
+    Context#context{actions = [{TriggerId, TargetId, flatten_list(Actions)} | Context#context.actions]}.
 
-    flatten_list(L) when is_list(L) ->
-        lists:flatten(L);
-    flatten_list(Other) ->
-        Other.
+flatten_list(L) when is_list(L) ->
+    lists:flatten(L);
+flatten_list(Other) ->
+    Other.
 
 
 %% @doc Map a target id to a css selector
@@ -589,22 +599,22 @@ css_selector(TargetId) ->
 css_selector(TargetId, Args) ->
     case proplists:get_value(selector, Args) of
         Empty when Empty =:= undefined; Empty =:= <<>>; Empty =:= "" ->
-            css_selector_1(TargetId);
+            css_selector1(TargetId);
         <<"window">> -> window;
         "window" -> window;
         Selector -> Selector
     end.
 
-css_selector_1(undefined) -> <<>>;
-css_selector_1(<<>>) -> <<>>;
-css_selector_1("") -> <<>>;
-css_selector_1(window) -> window;
-css_selector_1("window") -> window;
-css_selector_1(<<"window">>) -> window;
-css_selector_1(<<"#", _/binary>> = Sel) -> Sel;
-css_selector_1(<<" ", _/binary>> = Sel) -> Sel;
-css_selector_1(Sel) when is_list(Sel) -> css_selector_1(iolist_to_binary(Sel));
-css_selector_1(Sel) -> <<"#", Sel/binary>>.
+css_selector1(undefined) -> <<>>;
+css_selector1(<<>>) -> <<>>;
+css_selector1("") -> <<>>;
+css_selector1(window) -> window;
+css_selector1("window") -> window;
+css_selector1(<<"window">>) -> window;
+css_selector1(<<"#", _/binary>> = Sel) -> Sel;
+css_selector1(<<" ", _/binary>> = Sel) -> Sel;
+css_selector1(Sel) when is_list(Sel) -> css_selector1(iolist_to_binary(Sel));
+css_selector1(Sel) -> <<"#", Sel/binary>>.
 
 
 %% @doc Quote a css selector (assume no escaping needed...)
@@ -614,9 +624,9 @@ quote_css_selector(<<$', _/binary>> = S) -> S;
 quote_css_selector(<<$", _/binary>> = S) -> S;
 quote_css_selector(<<$$, _/binary>> = S) -> S;
 quote_css_selector([]) -> [];
-quote_css_selector([$'|_] = S) -> S;
-quote_css_selector([$"|_] = S) -> S;
-quote_css_selector([$$|_] = S) -> S;
+quote_css_selector([$' | _] = S) -> S;
+quote_css_selector([$" | _] = S) -> S;
+quote_css_selector([$$ | _] = S) -> S;
 quote_css_selector(S) -> [$", S, $"].
 
 
@@ -624,7 +634,7 @@ quote_css_selector(S) -> [$", S, $"].
 render_css_selector(Selector) ->
     case quote_css_selector(Selector) of
         <<$$, _/binary>> = Sel -> Sel;
-        [$$|_] = Sel -> Sel;
+        [$$ | _] = Sel -> Sel;
         CssSel -> [$$, $(, CssSel, $)]
     end.
 

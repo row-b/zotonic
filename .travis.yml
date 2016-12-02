@@ -28,6 +28,9 @@ script:
   - if [[ "$BUILD_DOCS" = true ]]; then make -C doc/ stubs; fi
   - if [[ "$BUILD_DOCS" = true ]]; then make -C doc/ SPHINXOPTS='-nW' html; fi
   - ./rebar3 xref
+  - wget https://github.com/inaka/elvis/releases/download/0.2.12/elvis
+  - chmod +x elvis
+#  - elvis rock
   - if [[ "$DIALYZER" = true ]]; then ./rebar3 dialyzer; fi
 sudo: false
 branches:

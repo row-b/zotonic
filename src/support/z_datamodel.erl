@@ -67,9 +67,9 @@ manage_medium(Module, {Name, {EmbedService, EmbedCode}, Props}, Options, Context
             ok;
         {ok, Id} ->
             MediaProps = [{mime, "text/html-video-embed"},
-                          {video_embed_service, EmbedService},
-                          {video_embed_code, EmbedCode}
-                         ],
+                {video_embed_service, EmbedService},
+                {video_embed_code, EmbedCode}
+            ],
             m_media:replace(Id, MediaProps, Context),
             {ok, Id}
     end;
@@ -104,7 +104,7 @@ manage_category(Module, {Name, ParentCategory, Props}, Options, Context) ->
 
 
 manage_predicate(Module, {Name, Uri, Props, ValidFor}, Options, Context) ->
-    manage_predicate(Module, {Name, [{uri,Uri}|Props], ValidFor}, Options, Context);
+    manage_predicate(Module, {Name, [{uri, Uri} | Props], ValidFor}, Options, Context);
 
 manage_predicate(Module, {Name, Props, ValidFor}, Options, Context) ->
     Category = proplists:get_value(category, Props, predicate),
@@ -127,7 +127,7 @@ manage_resource(Module, {Name, Category, Props0}, Options, Context) ->
                         Module ->
                             NewProps = update_new_props(Module, Id, Props, Options, Context),
                             m_rsc_update:update(Id, [{managed_props, z_html:escape_props(Props)} | NewProps],
-                                                [{is_import, true}], Context),
+                                [{is_import, true}], Context),
                             ok;
                         _ ->
                             %% Resource exists but is not installed by us.
@@ -137,19 +137,19 @@ manage_resource(Module, {Name, Category, Props0}, Options, Context) ->
                 {error, {unknown_rsc, _}} ->
                     %% new resource, or old resource
                     Props1 = [{name, Name}, {category_id, CatId},
-                              {installed_by, Module}, {managed_props, z_html:escape_props(Props)}] ++ Props,
+                        {installed_by, Module}, {managed_props, z_html:escape_props(Props)}] ++ Props,
                     Props2 = case proplists:get_value(is_published, Props1) of
-                                 undefined -> [{is_published, true} | Props1];
-                                 _ -> Props1
-                             end,
+                        undefined -> [{is_published, true} | Props1];
+                        _ -> Props1
+                    end,
                     Props4 = case proplists:get_value(is_protected, Props2) of
-                                 undefined -> [{is_protected, true} | Props2];
-                                 _ -> Props2
-                             end,
+                        undefined -> [{is_protected, true} | Props2];
+                        _ -> Props2
+                    end,
                     Props5 = case proplists:get_value(is_dependent, Props4) of
-                                 undefined -> [{is_dependent, false} | Props4];
-                                 _ -> Props4
-                             end,
+                        undefined -> [{is_dependent, false} | Props4];
+                        _ -> Props4
+                    end,
                     lager:info("Creating new ~p '~p'", [Category, Name]),
                     {ok, Id} = m_rsc_update:update(insert_rsc, Props5, [{is_import, true}], Context),
                     case proplists:get_value(media_url, Props5) of
@@ -180,30 +180,30 @@ update_new_props(Module, Id, NewProps, Options, Context) ->
             NewProps;
         PreviousProps ->
             lists:foldl(fun({K, V}, Props) ->
-                                case m_rsc:p(Id, K, Context) of
+                case m_rsc:p(Id, K, Context) of
+                    V ->
+                        %% New value == current value
+                        Props;
+                    DbVal ->
+                        case proplists:get_value(K, PreviousProps) of
+                            DbVal ->
+                                %% New value in NewProps, unchanged in DB
+                                [{K, V} | Props];
+                            _PrevVal when is_binary(DbVal) ->
+                                %% Compare with converted to list value
+                                case z_convert:to_list(DbVal) of
                                     V ->
-                                        %% New value == current value
                                         Props;
-                                    DbVal ->
-                                        case proplists:get_value(K, PreviousProps) of
-                                            DbVal ->
-                                                %% New value in NewProps, unchanged in DB
-                                                [{K,V} | Props];
-                                            _PrevVal when is_binary(DbVal) ->
-                                                %% Compare with converted to list value
-                                                case z_convert:to_list(DbVal) of
-                                                    V ->
-                                                        Props;
-                                                    _X ->
-                                                        %% Changed by someone else
-                                                        maybe_force_update(K, V, Props, Module, Id, Options, Context)
-                                                end;
-                                            _PrevVal2 ->
-                                                %% Changed by someone else
-                                                maybe_force_update(K, V, Props, Module, Id, Options, Context)
-                                        end
-                                end
-                        end, [], NewProps)
+                                    _X ->
+                                        %% Changed by someone else
+                                        maybe_force_update(K, V, Props, Module, Id, Options, Context)
+                                end;
+                            _PrevVal2 ->
+                                %% Changed by someone else
+                                maybe_force_update(K, V, Props, Module, Id, Options, Context)
+                        end
+                end
+            end, [], NewProps)
     end.
 
 
@@ -222,14 +222,14 @@ manage_predicate_validfor(_Id, [], _Options, _Context) ->
     ok;
 manage_predicate_validfor(Id, [{SubjectCat, ObjectCat} | Rest], Options, Context) ->
     F = fun(S, I, C) ->
-                case z_db:q("SELECT 1 FROM predicate_category WHERE predicate_id = $1 AND is_subject = $2 AND category_id = $3", [S, I, C], Context) of
-                    [{1}] ->
-                        ok;
-                    _ ->
-                        z_db:q("insert into predicate_category (predicate_id, is_subject, category_id) values ($1, $2, $3)", [S, I, C], Context),
-                        ok
-                end
-        end,
+        case z_db:q("SELECT 1 FROM predicate_category WHERE predicate_id = $1 AND is_subject = $2 AND category_id = $3", [S, I, C], Context) of
+            [{1}] ->
+                ok;
+            _ ->
+                z_db:q("insert into predicate_category (predicate_id, is_subject, category_id) values ($1, $2, $3)", [S, I, C], Context),
+                ok
+        end
+    end,
     case SubjectCat of
         undefined -> nop;
         _ ->
@@ -249,9 +249,9 @@ map_props(Props, Context) ->
 
 map_props([], _Context, Acc) ->
     Acc;
-map_props([{Key, Value}|Rest], Context, Acc) ->
+map_props([{Key, Value} | Rest], Context, Acc) ->
     Value2 = map_prop(Value, Context),
-    map_props(Rest, Context, [{Key, Value2}|Acc]).
+    map_props(Rest, Context, [{Key, Value2} | Acc]).
 
 
 map_prop({file, Filepath}, _Context) ->
@@ -259,8 +259,8 @@ map_prop({file, Filepath}, _Context) ->
     Txt;
 map_prop({to_id, Name}, Context) ->
     case m_rsc:name_to_id(Name, Context) of
-             {ok, Id} -> Id;
-             _ -> undefined
+        {ok, Id} -> Id;
+        _ -> undefined
     end;
 map_prop(Value, _Context) ->
     Value.
@@ -272,7 +272,7 @@ manage_edge(_Module, {SubjectName, PredicateName, ObjectName, EdgeOptions}, _Opt
     Predicate = m_predicate:name_to_id(PredicateName, Context),
     Object = m_rsc:name_to_id(ObjectName, Context),
     case {Subject, Predicate, Object} of
-        {{ok, SubjectId}, {ok, PredicateId}, {ok,ObjectId}} ->
+        {{ok, SubjectId}, {ok, PredicateId}, {ok, ObjectId}} ->
             m_edge:insert(SubjectId, PredicateId, ObjectId, EdgeOptions, Context);
         _ ->
             skip %% One part of the triple was MIA

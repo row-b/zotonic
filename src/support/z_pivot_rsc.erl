@@ -69,10 +69,10 @@
 -define(POLL_BATCH, 50).
 
 %% Minimum day, inserted for date start search ranges
--define(EPOCH_START, {{-4000,1,1},{0,0,0}}).
+-define(EPOCH_START, {{-4000, 1, 1}, {0, 0, 0}}).
 
 
--record(state, {site, is_initial_delay=true, is_pivot_delay = false}).
+-record(state, {site, is_initial_delay = true, is_pivot_delay = false}).
 
 
 %% @doc Poll the pivot queue for the database in the context
@@ -95,13 +95,13 @@ pivot_delay(Context) ->
 %% @doc Return a modified property list with fields that need immediate pivoting on an update.
 pivot_resource_update(Id, UpdateProps, RawProps, Context) ->
     Props = lists:foldl(fun(Key, All) ->
-                                case proplists:is_defined(Key, UpdateProps) of
-                                    false ->
-                                        [{Key, proplists:get_value(Key, RawProps)}|All];
-                                    true ->
-                                        All
-                                end
-                        end, UpdateProps, [date_start, date_end, title]),
+        case proplists:is_defined(Key, UpdateProps) of
+            false ->
+                [{Key, proplists:get_value(Key, RawProps)} | All];
+            true ->
+                All
+        end
+    end, UpdateProps, [date_start, date_end, title]),
 
     {DateStart, DateEnd} = pivot_date(Props),
     PivotTitle = truncate(get_pivot_title(Props), 100),
@@ -113,32 +113,32 @@ pivot_resource_update(Id, UpdateProps, RawProps, Context) ->
         {pivot_title, PivotTitle}
         | Props
     ],
-    z_notifier:foldr(#pivot_update{id=Id, raw_props=RawProps}, Props1, Context).
+    z_notifier:foldr(#pivot_update{id = Id, raw_props = RawProps}, Props1, Context).
 
 month_day(undefined) -> undefined;
 month_day(?EPOCH_START) -> undefined;
 month_day(?ST_JUTTEMIS) -> undefined;
-month_day({{_Y,M,D}, _}) -> M*100+D.
+month_day({{_Y, M, D}, _}) -> M * 100 + D.
 
 
 %% @doc Rebuild the search index by queueing all resources for pivot.
 queue_all(Context) ->
     erlang:spawn(fun() ->
-                    queue_all(0, Context)
-                 end).
+        queue_all(0, Context)
+    end).
 
-    queue_all(FromId, Context) ->
-        case z_db:q("select id from rsc where id > $1 order by id limit 1000", [FromId], Context) of
-            [] ->
-                done;
-            Ids ->
-                F = fun(Ctx) ->
-                        [ insert_queue(Id, Ctx) || {Id} <- Ids ]
-                    end,
-                z_db:transaction(F, Context),
-                {LastId} = lists:last(Ids),
-                queue_all(LastId, Context)
-        end.
+queue_all(FromId, Context) ->
+    case z_db:q("select id from rsc where id > $1 order by id limit 1000", [FromId], Context) of
+        [] ->
+            done;
+        Ids ->
+            F = fun(Ctx) ->
+                [insert_queue(Id, Ctx) || {Id} <- Ids]
+            end,
+            z_db:transaction(F, Context),
+            {LastId} = lists:last(Ids),
+            queue_all(LastId, Context)
+    end.
 
 %% @doc Insert a rsc_id in the pivot queue
 -spec insert_queue(m_rsc:resource(), #context{}) -> ok | {error, eexist}.
@@ -159,11 +159,11 @@ insert_queue(Id, Date, Context) when is_integer(Id), is_tuple(Date) ->
                 0 ->
                     try
                         z_db:q("insert into rsc_pivot_queue (rsc_id, due, is_update) values ($1, $2, true)",
-                               [Id, Date],
-                               Ctx),
+                            [Id, Date],
+                            Ctx),
                         ok
                     catch
-                        throw:{error, {error,error,<<"23503">>, _, _}} ->
+                        throw:{error, {error, error, <<"23503">>, _, _}} ->
                             {error, eexist}
                     end
             end
@@ -186,56 +186,57 @@ insert_task(Module, Function, UniqueKey, Args, Context) ->
 
 %% @doc Insert a slow running pivot task with unique key and arguments that should start after Seconds seconds.
 insert_task_after(SecondsOrDate, Module, Function, UniqueKey, Args, Context) ->
-    z_db:transaction(fun(Ctx) -> insert_transaction(SecondsOrDate, Module, Function, UniqueKey, Args, Ctx) end, Context).
+    z_db:transaction(fun(Ctx) ->
+        insert_transaction(SecondsOrDate, Module, Function, UniqueKey, Args, Ctx) end, Context).
 
-    insert_transaction(SecondsOrDate, Module, Function, UniqueKey, Args, Context) ->
-        Due = to_utc_date(SecondsOrDate),
-        UniqueKeyBin = z_convert:to_binary(UniqueKey),
-        Fields = [
-            {module, Module},
-            {function, Function},
-            {key, UniqueKeyBin},
-            {args, Args},
-            {due, Due}
-        ],
-        case z_db:q1("select id
+insert_transaction(SecondsOrDate, Module, Function, UniqueKey, Args, Context) ->
+    Due = to_utc_date(SecondsOrDate),
+    UniqueKeyBin = z_convert:to_binary(UniqueKey),
+    Fields = [
+        {module, Module},
+        {function, Function},
+        {key, UniqueKeyBin},
+        {args, Args},
+        {due, Due}
+    ],
+    case z_db:q1("select id
                       from pivot_task_queue
                       where module = $1 and function = $2 and key = $3",
-                     [Module, Function, UniqueKeyBin],
-                     Context)
-        of
-            undefined ->
-                z_db:insert(pivot_task_queue, Fields, Context);
-            Id when is_integer(Id) ->
-                case Due of
-                    undefined -> nop;
-                    _ -> z_db:update(pivot_task_queue, Id, Fields, Context)
-                end,
-                {ok, Id}
-        end.
+        [Module, Function, UniqueKeyBin],
+        Context)
+    of
+        undefined ->
+            z_db:insert(pivot_task_queue, Fields, Context);
+        Id when is_integer(Id) ->
+            case Due of
+                undefined -> nop;
+                _ -> z_db:update(pivot_task_queue, Id, Fields, Context)
+            end,
+            {ok, Id}
+    end.
 
 
 get_task(Context) ->
     z_db:assoc("
             select *
             from pivot_task_queue",
-            Context).
+        Context).
 
 get_task(Module, Context) ->
     z_db:assoc("
             select *
             from pivot_task_queue
             where module = $1",
-            [Module],
-            Context).
+        [Module],
+        Context).
 
 get_task(Module, Function, Context) ->
     z_db:assoc("
             select *
             from pivot_task_queue
             where module = $1 and function = $2",
-            [Module, Function],
-            Context).
+        [Module, Function],
+        Context).
 
 get_task(Module, Function, UniqueKey, Context) ->
     UniqueKeyBin = z_convert:to_binary(UniqueKey),
@@ -243,30 +244,30 @@ get_task(Module, Function, UniqueKey, Context) ->
             select *
             from pivot_task_queue
             where module = $1 and function = $2 and key = $3",
-            [Module, Function, UniqueKeyBin],
-            Context).
+        [Module, Function, UniqueKeyBin],
+        Context).
 
 to_utc_date(undefined) ->
     undefined;
 to_utc_date(N) when is_integer(N) ->
     calendar:gregorian_seconds_to_datetime(
         calendar:datetime_to_gregorian_seconds(calendar:universal_time()) + N);
-to_utc_date({Y,M,D} = YMD) when is_integer(Y), is_integer(M), is_integer(D) ->
-    {YMD,{0,0,0}};
-to_utc_date({{Y,M,D},{H,I,S}} = Date) when is_integer(Y), is_integer(M), is_integer(D), is_integer(H), is_integer(I), is_integer(S) ->
+to_utc_date({Y, M, D} = YMD) when is_integer(Y), is_integer(M), is_integer(D) ->
+    {YMD, {0, 0, 0}};
+to_utc_date({{Y, M, D}, {H, I, S}} = Date) when is_integer(Y), is_integer(M), is_integer(D), is_integer(H), is_integer(I), is_integer(S) ->
     Date.
 
 
 delete_task(Module, Function, Context) ->
     z_db:q("delete from pivot_task_queue where module = $1 and function = $2",
-           [Module, Function],
-           Context).
+        [Module, Function],
+        Context).
 
 delete_task(Module, Function, UniqueKey, Context) ->
     UniqueKeyBin = z_convert:to_binary(UniqueKey),
     z_db:q("delete from pivot_task_queue where module = $1 and function = $2 and key = $3",
-           [Module, Function, UniqueKeyBin],
-           Context).
+        [Module, Function, UniqueKeyBin],
+        Context).
 
 
 %%====================================================================
@@ -293,9 +294,9 @@ init(Site) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
-    timer:send_after(?PIVOT_POLL_INTERVAL_SLOW*1000, poll),
-    {ok, #state{site=Site, is_initial_delay=true, is_pivot_delay=false}}.
+    ]),
+    timer:send_after(?PIVOT_POLL_INTERVAL_SLOW * 1000, poll),
+    {ok, #state{site = Site, is_initial_delay = true, is_pivot_delay = false}}.
 
 
 %% @spec handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -313,7 +314,7 @@ handle_call(Message, _From, State) ->
 %%                                  {noreply, State, Timeout} |
 %%                                  {stop, Reason, State}
 %% @doc Poll the queue for the default host
-handle_cast(poll, #state{is_initial_delay=true} = State) ->
+handle_cast(poll, #state{is_initial_delay = true} = State) ->
     {noreply, State};
 handle_cast(poll, State) ->
     do_poll(z_context:new(State#state.site)),
@@ -321,7 +322,7 @@ handle_cast(poll, State) ->
 
 
 %% @doc Poll the queue for a particular database
-handle_cast({pivot, Id}, #state{is_initial_delay=true} = State) ->
+handle_cast({pivot, Id}, #state{is_initial_delay = true} = State) ->
     insert_queue(Id, z_context:new(State#state.site)),
     {noreply, State};
 handle_cast({pivot, Id}, State) ->
@@ -330,7 +331,7 @@ handle_cast({pivot, Id}, State) ->
 
 %% @doc Delay the next pivot, useful when performing big updates
 handle_cast(pivot_delay, State) ->
-    {noreply, State#state{is_pivot_delay=true}};
+    {noreply, State#state{is_pivot_delay = true}};
 
 %% @doc Trap unknown casts
 handle_cast(Message, State) ->
@@ -340,13 +341,13 @@ handle_cast(Message, State) ->
 %%                                       {noreply, State, Timeout} |
 %%                                       {stop, Reason, State}
 %% @doc Handling all non call/cast messages
-handle_info(poll, #state{is_pivot_delay=true} = State) ->
-    timer:send_after(?PIVOT_POLL_INTERVAL_SLOW*1000, poll),
-    {noreply, State#state{is_pivot_delay=false}};
+handle_info(poll, #state{is_pivot_delay = true} = State) ->
+    timer:send_after(?PIVOT_POLL_INTERVAL_SLOW * 1000, poll),
+    {noreply, State#state{is_pivot_delay = false}};
 handle_info(poll, State) ->
     case do_poll(z_context:new(State#state.site)) of
-        true ->  timer:send_after(?PIVOT_POLL_INTERVAL_FAST*1000, poll);
-        false -> timer:send_after(?PIVOT_POLL_INTERVAL_SLOW*1000, poll)
+        true -> timer:send_after(?PIVOT_POLL_INTERVAL_FAST * 1000, poll);
+        false -> timer:send_after(?PIVOT_POLL_INTERVAL_SLOW * 1000, poll)
     end,
     {noreply, State#state{is_initial_delay = false}};
 
@@ -388,21 +389,21 @@ do_poll_task(Context) ->
                 case erlang:apply(Module, Function, z_convert:to_list(Args) ++ [Context]) of
                     {delay, Delay} ->
                         Due = if
-                                is_integer(Delay) ->
-                                    calendar:gregorian_seconds_to_datetime(
-                                        calendar:datetime_to_gregorian_seconds(calendar:universal_time()) + Delay);
-                                is_tuple(Delay) ->
-                                    Delay
-                              end,
+                            is_integer(Delay) ->
+                                calendar:gregorian_seconds_to_datetime(
+                                    calendar:datetime_to_gregorian_seconds(calendar:universal_time()) + Delay);
+                            is_tuple(Delay) ->
+                                Delay
+                        end,
                         z_db:q("update pivot_task_queue set due = $1 where id = $2", [Due, TaskId], Context);
                     {delay, Delay, NewArgs} ->
                         Due = if
-                                is_integer(Delay) ->
-                                    calendar:gregorian_seconds_to_datetime(
-                                        calendar:datetime_to_gregorian_seconds(calendar:universal_time()) + Delay);
-                                is_tuple(Delay) ->
-                                    Delay
-                              end,
+                            is_integer(Delay) ->
+                                calendar:gregorian_seconds_to_datetime(
+                                    calendar:datetime_to_gregorian_seconds(calendar:universal_time()) + Delay);
+                            is_tuple(Delay) ->
+                                Delay
+                        end,
                         Fields = [
                             {due, Due},
                             {args, NewArgs}
@@ -414,11 +415,11 @@ do_poll_task(Context) ->
             catch
                 error:undef ->
                     lager:warning("Undefined task, aborting: ~p:~p(~p) ~p~",
-                                [Module, Function, Args, erlang:get_stacktrace()]),
+                        [Module, Function, Args, erlang:get_stacktrace()]),
                     z_db:q("delete from pivot_task_queue where id = $1", [TaskId], Context);
                 Error:Reason ->
                     lager:warning("Task failed(~p:~p): ~p:~p(~p) ~p",
-                                [Error, Reason, Module, Function, Args, erlang:get_stacktrace()])
+                        [Error, Reason, Module, Function, Args, erlang:get_stacktrace()])
             end,
             true;
         empty ->
@@ -431,23 +432,23 @@ do_poll_queue(Context) ->
             false;
         Qs ->
             F = fun(Ctx) ->
-                        [ {Id, catch pivot_resource(Id, Ctx)} || {Id,_Serial} <- Qs]
-                end,
+                [{Id, catch pivot_resource(Id, Ctx)} || {Id, _Serial} <- Qs]
+            end,
             case z_db:transaction(F, Context) of
                 {rollback, PivotError} ->
                     lager:error("Pivot error: ~p: ~p",
-                                [PivotError, Qs]);
+                        [PivotError, Qs]);
                 L when is_list(L) ->
                     lists:map(fun({Id, _Serial}) ->
-                                    IsA = m_rsc:is_a(Id, Context),
-                                    z_notifier:notify(#rsc_pivot_done{id=Id, is_a=IsA}, Context),
-                                    % Flush the resource, as some synthesized attributes might depend on the pivoted fields.
-                                    % @todo Only do this if some fields are changed
-                                    m_rsc_update:flush(Id, Context)
-                              end, Qs),
+                        IsA = m_rsc:is_a(Id, Context),
+                        z_notifier:notify(#rsc_pivot_done{id = Id, is_a = IsA}, Context),
+                        % Flush the resource, as some synthesized attributes might depend on the pivoted fields.
+                        % @todo Only do this if some fields are changed
+                        m_rsc_update:flush(Id, Context)
+                    end, Qs),
                     lists:map(fun({_Id, ok}) -> ok;
-                                 ({Id,Error}) -> log_error(Id, Error, Context) end,
-                              L),
+                        ({Id, Error}) -> log_error(Id, Error, Context) end,
+                        L),
                     delete_queue(Qs, Context)
             end,
             true
@@ -465,9 +466,9 @@ poll_task(Context) ->
                      order by due asc
                      limit 1", Context)
     of
-        {Id,Module,Function,Key,Props} ->
+        {Id, Module, Function, Key, Props} ->
             Args = case Props of
-                [{args,Args0}] -> Args0;
+                [{args, Args0}] -> Args0;
                 _ -> []
             end,
             %% @todo We delete the task right now, this needs to be changed to a deletion after the task has been running.
@@ -497,7 +498,7 @@ fetch_queue_id(Id, Context) ->
 %% @doc Delete the previously queued ids iff the queue entry has not been updated in the meanwhile
 delete_queue(Qs, Context) ->
     F = fun(Ctx) ->
-        [ z_db:q("delete from rsc_pivot_queue where rsc_id = $1 and serial = $2", [Id,Serial], Ctx) || {Id,Serial} <- Qs ]
+        [z_db:q("delete from rsc_pivot_queue where rsc_id = $1 and serial = $2", [Id, Serial], Ctx) || {Id, Serial} <- Qs]
     end,
     z_db:transaction(F, Context).
 
@@ -505,15 +506,15 @@ delete_queue(Qs, Context) ->
 delete_queue(_Id, undefined, _Context) ->
     ok;
 delete_queue(Id, Serial, Context) ->
-    z_db:q("delete from rsc_pivot_queue where rsc_id = $1 and serial = $2", [Id,Serial], Context).
+    z_db:q("delete from rsc_pivot_queue where rsc_id = $1 and serial = $2", [Id, Serial], Context).
 
 
 -spec pivot_resource(integer(), #context{}) -> ok | {error, eexist}.
 pivot_resource(Id, Context0) ->
     Lang = stemmer_language_config(Context0),
     Context = z_context:set_language(Lang,
-                 z_context:set_tz(<<"UTC">>,
-                    z_acl:sudo(Context0))),
+        z_context:set_tz(<<"UTC">>,
+            z_acl:sudo(Context0))),
     case m_rsc:exists(Id, Context) of
         true ->
             RscProps = get_pivot_rsc(Id, Context),
@@ -554,7 +555,7 @@ pivot_resource(Id, Context0) ->
 
                     % Make the text and object-ids vectors for the pivot
                     TsvSql = [SqlA, " || ", SqlB, " || ", SqlC, " || ", SqlD],
-                    Tsv  = z_db:q1(iolist_to_binary(["select ", TsvSql]), ArgsD, Context),
+                    Tsv = z_db:q1(iolist_to_binary(["select ", TsvSql]), ArgsD, Context),
                     Rtsv = z_db:q1("select to_tsvector($1)", [TsvIds], Context),
 
                     KVs = [
@@ -576,7 +577,7 @@ pivot_resource(Id, Context0) ->
                         {pivot_location_lat, LocationLat},
                         {pivot_location_lng, LocationLng}
                     ],
-                    KVs1= z_notifier:foldr(#pivot_fields{id=Id, rsc=RscProps}, KVs, Context),
+                    KVs1 = z_notifier:foldr(#pivot_fields{id = Id, rsc = RscProps}, KVs, Context),
                     update_changed(Id, KVs1, RscProps, Context),
                     pivot_resource_custom(Id, Context),
 
@@ -600,53 +601,53 @@ render_block(Block, Template, Vars, Context) ->
 %% @doc Check which pivot fields are changed, update only those
 update_changed(Id, KVs, RscProps, Context) ->
     case lists:filter(
-                fun
-                    ({K,V}) when is_list(V) ->
-                        proplists:get_value(K, RscProps) =/= iolist_to_binary(V);
-                    ({K,undefined}) ->
-                        proplists:get_value(K, RscProps) =/= undefined;
-                    ({K,V}) when is_atom(V) ->
-                        proplists:get_value(K, RscProps) =/= z_convert:to_binary(V);
-                    ({K,V}) ->
-                        proplists:get_value(K, RscProps) =/= V
-                end,
-                KVs)
+        fun
+            ({K, V}) when is_list(V) ->
+                proplists:get_value(K, RscProps) =/= iolist_to_binary(V);
+            ({K, undefined}) ->
+                proplists:get_value(K, RscProps) =/= undefined;
+            ({K, V}) when is_atom(V) ->
+                proplists:get_value(K, RscProps) =/= z_convert:to_binary(V);
+            ({K, V}) ->
+                proplists:get_value(K, RscProps) =/= V
+        end,
+        KVs)
     of
         [] ->
             % No fields changed, nothing to do
             nop;
         KVsChanged ->
             % Make Sql update statement for the changed fields
-            {Sql, Args} = lists:foldl(fun({K,V}, {Sq,As}) ->
-                                         {[Sq,
-                                            case As of [] -> []; _ -> $, end,
-                                            z_convert:to_list(K),
-                                            " = $", integer_to_list(length(As)+1)
-                                          ],
-                                          [V|As]}
-                                      end,
-                                      {"update rsc set ",[]},
-                                      KVsChanged),
+            {Sql, Args} = lists:foldl(fun({K, V}, {Sq, As}) ->
+                {[Sq,
+                    case As of [] -> []; _ -> $, end,
+                    z_convert:to_list(K),
+                    " = $", integer_to_list(length(As) + 1)
+                ],
+                    [V | As]}
+            end,
+                {"update rsc set ", []},
+                KVsChanged),
 
-            z_db:q1(iolist_to_binary([Sql, " where id = $", integer_to_list(length(Args)+1)]),
-                    lists:reverse([Id|Args]),
-                    Context)
+            z_db:q1(iolist_to_binary([Sql, " where id = $", integer_to_list(length(Args) + 1)]),
+                lists:reverse([Id | Args]),
+                Context)
     end.
 
 
 pivot_resource_custom(Id, Context) ->
-    CustomPivots = z_notifier:map(#custom_pivot{id=Id}, Context),
+    CustomPivots = z_notifier:map(#custom_pivot{id = Id}, Context),
     lists:foreach(
-            fun
-                (undefined) -> ok;
-                (none) -> ok;
-                ({error, _} = Error) ->
-                    lager:error("Error return from custom pivot of ~p, error: ~p",
-                                [Id, Error]);
-                (Res) ->
-                    update_custom_pivot(Id, Res, Context)
-            end,
-            CustomPivots),
+        fun
+            (undefined) -> ok;
+            (none) -> ok;
+            ({error, _} = Error) ->
+                lager:error("Error return from custom pivot of ~p, error: ~p",
+                    [Id, Error]);
+            (Res) ->
+                update_custom_pivot(Id, Res, Context)
+        end,
+        CustomPivots),
     ok.
 
 
@@ -657,13 +658,13 @@ to_datetime(Text) ->
         Text1 -> check_datetime(z_datetime:to_datetime(Text1))
     end.
 
-check_datetime({{Y,M,D},{H,I,S}} = Date)
+check_datetime({{Y, M, D}, {H, I, S}} = Date)
     when is_integer(Y), is_integer(M), is_integer(D),
-         is_integer(H), is_integer(I), is_integer(S) ->
+    is_integer(H), is_integer(I), is_integer(S) ->
     Date;
-check_datetime({Y,M,D} = Date)
+check_datetime({Y, M, D} = Date)
     when is_integer(Y), is_integer(M), is_integer(D) ->
-    {Date, {0,0,0}};
+    {Date, {0, 0, 0}};
 check_datetime(_) ->
     undefined.
 
@@ -676,7 +677,7 @@ to_tsv(Text, Level, Args, StemmingLanguage) when is_binary(Text) ->
         TsvText ->
             N = length(Args) + 1,
             Args1 = Args ++ [TsvText],
-        {["setweight(to_tsvector('pg_catalog.",StemmingLanguage,"', $",integer_to_list(N),"), '",Level,"')"], Args1}
+            {["setweight(to_tsvector('pg_catalog.", StemmingLanguage, "', $", integer_to_list(N), "), '", Level, "')"], Args1}
     end.
 
 -spec to_float(term()) -> float().
@@ -697,21 +698,21 @@ to_integer(Text) ->
     end.
 
 cleanup_tsv_text(Text) when is_binary(Text) ->
-    Text1 = binary:replace(Text,  <<"-">>, <<" ">>, [global]),
+    Text1 = binary:replace(Text, <<"-">>, <<" ">>, [global]),
     Text2 = binary:replace(Text1, <<"/">>, <<" ">>, [global]),
     z_string:trim(Text2).
 
 truncate(undefined, _Len) -> undefined;
 truncate(S, Len) -> iolist_to_binary(
-                        z_string:trim(
-                            z_string:to_lower(
-                                truncate_1(S, Len, Len)))).
+    z_string:trim(
+        z_string:to_lower(
+            truncate_1(S, Len, Len)))).
 
 truncate_1(_S, 0, _Bytes) ->
     "";
 truncate_1(S, Utf8Len, Bytes) ->
     case z_string:truncate(S, Utf8Len, "") of
-        T when length(T) > Bytes -> truncate_1(T, Utf8Len-1, Bytes);
+        T when length(T) > Bytes -> truncate_1(T, Utf8Len - 1, Bytes);
         L -> L
     end.
 
@@ -719,17 +720,17 @@ truncate_1(S, Utf8Len, Bytes) ->
 %% @doc Fetch the date range from the record
 pivot_date(R) ->
     DateStart = z_datetime:undefined_if_invalid_date(proplists:get_value(date_start, R)),
-    DateEnd   = z_datetime:undefined_if_invalid_date(proplists:get_value(date_end, R)),
+    DateEnd = z_datetime:undefined_if_invalid_date(proplists:get_value(date_end, R)),
     pivot_date1(DateStart, DateEnd).
 
-    pivot_date1(S, E) when not is_tuple(S) andalso not is_tuple(E) ->
-        {undefined, undefined};
-    pivot_date1(S, E) when not is_tuple(S) andalso is_tuple(E) ->
-        { ?EPOCH_START, E};
-    pivot_date1(S, E) when is_tuple(S) andalso not is_tuple(E) ->
-        {S, ?ST_JUTTEMIS};
-    pivot_date1(S, E) when is_tuple(S) andalso is_tuple(E) ->
-        {S, E}.
+pivot_date1(S, E) when not is_tuple(S) andalso not is_tuple(E) ->
+    {undefined, undefined};
+pivot_date1(S, E) when not is_tuple(S) andalso is_tuple(E) ->
+    {?EPOCH_START, E};
+pivot_date1(S, E) when is_tuple(S) andalso not is_tuple(E) ->
+    {S, ?ST_JUTTEMIS};
+pivot_date1(S, E) when is_tuple(S) andalso is_tuple(E) ->
+    {S, E}.
 
 
 %% @doc Fetch the first title from the record for sorting.
@@ -740,7 +741,7 @@ get_pivot_title(Props) ->
     case proplists:get_value(title, Props) of
         {trans, []} ->
             "";
-        {trans, [{_, Text}|_]} ->
+        {trans, [{_, Text} | _]} ->
             z_string:to_lower(Text);
         T ->
             z_string:to_lower(T)
@@ -795,10 +796,10 @@ pg_lang_extra(LangCode) ->
             pg_lang(LangCode);
         Lang ->
             lists:takewhile(fun
-                                (C) when C >= $a, C =< $z -> true;
-                                (_) -> false
-                            end,
-                            z_convert:to_list(z_string:to_lower(Lang)))
+                (C) when C >= $a, C =< $z -> true;
+                (_) -> false
+            end,
+                z_convert:to_list(z_string:to_lower(Lang)))
     end.
 
 % Default stemmers in a Ubuntu psql install:
@@ -854,37 +855,37 @@ define_custom_pivot(Module, Columns, Context) ->
             ok;
         false ->
             ok = z_db:transaction(
-                    fun(Ctx) ->
-                        Fields = custom_columns(Columns),
-                        Sql = "CREATE TABLE " ++ TableName ++ "(" ++
-                              "id int NOT NULL," ++ Fields ++ " primary key(id))",
+                fun(Ctx) ->
+                    Fields = custom_columns(Columns),
+                    Sql = "CREATE TABLE " ++ TableName ++ "(" ++
+                        "id int NOT NULL," ++ Fields ++ " primary key(id))",
 
-                        [] = z_db:q(lists:flatten(Sql), Ctx),
+                    [] = z_db:q(lists:flatten(Sql), Ctx),
 
-                        [] = z_db:q("ALTER TABLE " ++ TableName ++
-                                    " ADD CONSTRAINT fk_" ++ TableName ++ "_id " ++
-                                    " FOREIGN KEY (id) REFERENCES rsc(id) ON UPDATE CASCADE ON DELETE CASCADE", Ctx),
+                    [] = z_db:q("ALTER TABLE " ++ TableName ++
+                        " ADD CONSTRAINT fk_" ++ TableName ++ "_id " ++
+                        " FOREIGN KEY (id) REFERENCES rsc(id) ON UPDATE CASCADE ON DELETE CASCADE", Ctx),
 
-                        Indexable = lists:filter(fun({_,_}) -> true;
-                                                    ({_,_,Opts}) -> not lists:member(noindex, Opts)
-                                                 end,
-                                                 Columns),
-                        Idx = [
-                                begin
-                                    K = element(1,Col),
-                                    "CREATE INDEX " ++ z_convert:to_list(K) ++ "_key ON "
-                                    ++ TableName ++ "(" ++ z_convert:to_list(K) ++ ")"
-                                end
-                                || Col <- Indexable
-                            ],
-                        lists:foreach(
-                            fun(Sql1) ->
-                                [] = z_db:q(Sql1, Ctx)
-                            end,
-                            Idx),
-                        ok
+                    Indexable = lists:filter(fun({_, _}) -> true;
+                        ({_, _, Opts}) -> not lists:member(noindex, Opts)
                     end,
-                    Context),
+                        Columns),
+                    Idx = [
+                        begin
+                            K = element(1, Col),
+                            "CREATE INDEX " ++ z_convert:to_list(K) ++ "_key ON "
+                                ++ TableName ++ "(" ++ z_convert:to_list(K) ++ ")"
+                        end
+                        || Col <- Indexable
+                    ],
+                    lists:foreach(
+                        fun(Sql1) ->
+                            [] = z_db:q(Sql1, Ctx)
+                        end,
+                        Idx),
+                    ok
+                end,
+                Context),
             z_db:flush(Context),
             ok
     end.
@@ -895,18 +896,18 @@ custom_columns(Cols) ->
 
 custom_columns([], Acc) ->
     lists:reverse(Acc);
-custom_columns([{Name, Spec}|Rest], Acc) ->
-    custom_columns(Rest, [ [z_convert:to_list(Name), " ", Spec, ","] |  Acc]);
-custom_columns([{Name, Spec, _Opts}|Rest], Acc) ->
-    custom_columns(Rest, [ [z_convert:to_list(Name), " ", Spec, ","] |  Acc]).
+custom_columns([{Name, Spec} | Rest], Acc) ->
+    custom_columns(Rest, [[z_convert:to_list(Name), " ", Spec, ","] | Acc]);
+custom_columns([{Name, Spec, _Opts} | Rest], Acc) ->
+    custom_columns(Rest, [[z_convert:to_list(Name), " ", Spec, ","] | Acc]).
 
 
 update_custom_pivot(Id, {Module, Columns}, Context) ->
     TableName = "pivot_" ++ z_convert:to_list(Module),
     case z_db:select(TableName, Id, Context) of
         {ok, []} ->
-            {ok, _} = z_db:insert(TableName, [{id, Id}|Columns], Context);
-        {ok, _}  ->
+            {ok, _} = z_db:insert(TableName, [{id, Id} | Columns], Context);
+        {ok, _} ->
             {ok, _} = z_db:update(TableName, Id, Columns, Context)
     end.
 
@@ -919,5 +920,5 @@ lookup_custom_pivot(Module, Column, Value, Context) ->
     Query = "SELECT id FROM " ++ TableName ++ " WHERE " ++ Column1 ++ " = $1",
     case z_db:q(Query, [Value], Context) of
         [] -> undefined;
-        [{Id}|_] -> Id
+        [{Id} | _] -> Id
     end.

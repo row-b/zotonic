@@ -30,7 +30,7 @@
     escape_link/2,
     html/1,
     html/2
-    ]).
+]).
 
 -include_lib("zotonic.hrl").
 
@@ -50,7 +50,7 @@ escape_props_check(Props, Context) ->
     z_html:escape_props_check(Props, context_options(Context)).
 
 escape_link({trans, Tr}) ->
-    [ {Lang, escape_link(Text)} || {Lang, Text} <- Tr ];
+    [{Lang, escape_link(Text)} || {Lang, Text} <- Tr];
 escape_link(V) ->
     z_html:escape_link(V).
 
@@ -68,7 +68,8 @@ context_options(Context) ->
     [
         {elt_extra, m_config:get_value(site, html_elt_extra, <<"embed,iframe,object,script">>, Context)},
         {attr_extra, m_config:get_value(site, html_attr_extra, <<"data,allowfullscreen,flashvars,frameborder,scrolling,async,defer">>, Context)},
-        {element, fun(Element, Stack, Opts) -> sanitize_element(Element, Stack, Opts, Context) end}
+        {element, fun(Element, Stack, Opts) ->
+            sanitize_element(Element, Stack, Opts, Context) end}
     ].
 
 default_options() ->
@@ -80,7 +81,7 @@ default_options() ->
 
 
 sanitize_element(Element, Stack, Opts, Context) ->
-    case z_notifier:foldl(#sanitize_element{element=Element, stack=Stack}, Element, Context) of
+    case z_notifier:foldl(#sanitize_element{element = Element, stack = Stack}, Element, Context) of
         Element ->
             sanitize_element_1(Element, Stack, Opts, Context);
         NewElement ->
@@ -104,8 +105,8 @@ sanitize_element_1(Element, Stack, Opts, _Context) ->
 sanitize_element_opts({<<"a">>, Attrs, Inner} = Element, _Stack, _Opts) ->
     case proplists:is_defined(<<"target">>, Attrs) of
         true ->
-            Attrs1 = [ Attr || Attr = {K,_} <- Attrs, K =/= <<"rel">> ],
-            Attrs2 = [ {<<"rel">>, <<"noopener noreferrer">>} | Attrs1 ],
+            Attrs1 = [Attr || Attr = {K, _} <- Attrs, K =/= <<"rel">>],
+            Attrs2 = [{<<"rel">>, <<"noopener noreferrer">>} | Attrs1],
             {<<"a">>, Attrs2, Inner};
         false ->
             Element
@@ -153,7 +154,7 @@ sanitize_script(Props, Context) ->
     Src = proplists:get_value(<<"src">>, Props),
     case to_whitelisted(Src, Context) of
         {ok, Url} ->
-            {<<"script">>, [{<<"src">>,Url} | proplists:delete(<<"src">>, Props)], []};
+            {<<"script">>, [{<<"src">>, Url} | proplists:delete(<<"src">>, Props)], []};
         false ->
             lager:info("Dropped script with url ~p", [Src]),
             <<>>
@@ -163,7 +164,7 @@ sanitize_iframe(Props, Context) ->
     Src = proplists:get_value(<<"src">>, Props),
     case to_whitelisted(Src, Context) of
         {ok, Url} ->
-            {<<"iframe">>, [{<<"src">>,Url} | proplists:delete(<<"src">>, Props)], []};
+            {<<"iframe">>, [{<<"src">>, Url} | proplists:delete(<<"src">>, Props)], []};
         false ->
             lager:info("Dropped iframe url ~p", [Src]),
             <<>>
@@ -177,7 +178,7 @@ sanitize_object(Props, Context) ->
         false ->
             case to_whitelisted(Src, Context) of
                 {ok, Url} ->
-                    {<<"embed">>, [{<<"src">>,Url} | proplists:delete(<<"data">>, Props)], []};
+                    {<<"embed">>, [{<<"src">>, Url} | proplists:delete(<<"data">>, Props)], []};
                 false ->
                     lager:info("Dropped object url ~p", [Src]),
                     <<>>
@@ -192,7 +193,7 @@ sanitize_embed(Props, Context) ->
         false ->
             case to_whitelisted(Src, Context) of
                 {ok, Url} ->
-                    {<<"embed">>, [{<<"src">>,Url} | proplists:delete(<<"src">>, Props)], []};
+                    {<<"embed">>, [{<<"src">>, Url} | proplists:delete(<<"src">>, Props)], []};
                 false ->
                     lager:info("Dropped embed url ~p", [Src]),
                     <<>>
@@ -203,17 +204,17 @@ maybe_embed2iframe(undefined, _Props) ->
     false;
 maybe_embed2iframe(Url, Props) ->
     case binary:split(Url, <<"//">>) of
-        [_,Loc] ->
+        [_, Loc] ->
             maybe_embed2iframe_1(Loc, Props);
         _ ->
             false
     end.
 
 maybe_embed2iframe_1(<<"www.youtube.com/v/", Rest/binary>>, Props) ->
-    [VideoCode|_] = binary:split(hd(binary:split(Rest, <<"?">>)), <<"&">>),
+    [VideoCode | _] = binary:split(hd(binary:split(Rest, <<"?">>)), <<"&">>),
     make_iframe(<<"https://www.youtube.com/embed/", VideoCode/binary>>, Props);
 maybe_embed2iframe_1(<<"www.youtube.com/embed/", _Rest/binary>> = EmbedUrl, Props) ->
-    make_iframe(<<"https://",EmbedUrl/binary>>, Props);
+    make_iframe(<<"https://", EmbedUrl/binary>>, Props);
 maybe_embed2iframe_1(_, _Props) ->
     false.
 
@@ -224,7 +225,7 @@ make_iframe(Url, Props) ->
             {<<"height">>, proplists:get_value(<<"height">>, Props, <<"360">>)},
             {<<"allowfullscreen">>, proplists:get_value(<<"allowfullscreen">>, Props, <<"1">>)},
             {<<"frameborder">>, <<"0">>},
-            {<<"src">>, maybe_append_flashvars(Url, proplists:get_value(<<"flashvars">>, Props) )}
+            {<<"src">>, maybe_append_flashvars(Url, proplists:get_value(<<"flashvars">>, Props))}
         ],
         []}}.
 
@@ -233,20 +234,20 @@ maybe_append_flashvars(Url, undefined) ->
 maybe_append_flashvars(Url, <<>>) ->
     Url;
 maybe_append_flashvars(Url, FlashVars) ->
-    iolist_to_binary([ Url, $?, z_convert:to_binary(z_url:url_path_encode(FlashVars)) ]).
+    iolist_to_binary([Url, $?, z_convert:to_binary(z_url:url_path_encode(FlashVars))]).
 
 to_whitelisted(undefined, _Context) ->
     false;
 to_whitelisted(Url, Context) ->
     to_whitelist_1(binary:split(Url, <<"//">>), Context).
 
-to_whitelist_1([Proto,Loc], Context) when Proto =:= <<>>; Proto =:= <<"http:">>; Proto =:= <<"https:">> ->
+to_whitelist_1([Proto, Loc], Context) when Proto =:= <<>>; Proto =:= <<"http:">>; Proto =:= <<"https:">> ->
     case wl(Loc, Context) of
         {ok, Loc1} ->
             Proto1 = case preferred_protocol(Loc1) of
-                        undefined -> Proto;
-                        P -> P
-                     end,
+                undefined -> Proto;
+                P -> P
+            end,
             {ok, <<Proto1/binary, "//", Loc1/binary>>};
         false ->
             false
@@ -263,7 +264,7 @@ preferred_protocol(_) -> undefined.
 
 
 wl(HostPath, Context) ->
-    case z_notifier:first(#sanitize_embed_url{hostpath=HostPath}, Context) of
+    case z_notifier:first(#sanitize_embed_url{hostpath = HostPath}, Context) of
         undefined ->
             wl(HostPath);
         false ->
@@ -275,41 +276,42 @@ wl(HostPath, Context) ->
 
 %% @doc Some whitelisted domains for embedding.
 wl(<<"youtu.be/", Rest/binary>>) -> {ok, <<"www.youtube.com/", Rest/binary>>};
-wl(<<"youtube.com/", Rest/binary>>) -> {ok, <<"www.youtube.com/", Rest/binary>>};
+wl(<<"youtube.com/", Rest/binary>>) ->
+    {ok, <<"www.youtube.com/", Rest/binary>>};
 wl(<<"www.youtube.com/", _/binary>> = Url) -> {ok, Url};
-wl(<<"player.vimeo.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"vimeo.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"www.slideshare.net/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"embed.spotify.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"api.soundcloud.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"w.soundcloud.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"cdn.knightlab.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"maps.google.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"www.google.com/maps/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"video.google.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"spreadsheets.google.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"docs.google.com/viewer?",  _/binary>> = Url) -> {ok, Url};
-wl(<<"vine.co/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"instagram.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"platform.instagram.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"www.hulu.com/",  _/binary>> = Url) -> {ok, Url};
+wl(<<"player.vimeo.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"vimeo.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"www.slideshare.net/", _/binary>> = Url) -> {ok, Url};
+wl(<<"embed.spotify.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"api.soundcloud.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"w.soundcloud.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"cdn.knightlab.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"maps.google.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"www.google.com/maps/", _/binary>> = Url) -> {ok, Url};
+wl(<<"video.google.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"spreadsheets.google.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"docs.google.com/viewer?", _/binary>> = Url) -> {ok, Url};
+wl(<<"vine.co/", _/binary>> = Url) -> {ok, Url};
+wl(<<"instagram.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"platform.instagram.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"www.hulu.com/", _/binary>> = Url) -> {ok, Url};
 wl(<<"www.metacafe.com/fplayer/", _/binary>> = Url) -> {ok, Url};
 wl(<<"www.flickr.com/", _/binary>> = Url) -> {ok, Url};
 wl(<<"flickrit.com/slideshowholder.php?", _/binary>> = Url) -> {ok, Url};
 wl(<<"flv.video.yandex.ru/", _/binary>> = Url) -> {ok, Url};
-wl(<<"www.tumblr.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"assets.tumblr.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"static.issuu.com/",  _/binary>> = Url) -> {ok, Url};
-wl(<<"e.issuu.com/",  _/binary>> = Url) -> {ok, Url};
+wl(<<"www.tumblr.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"assets.tumblr.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"static.issuu.com/", _/binary>> = Url) -> {ok, Url};
+wl(<<"e.issuu.com/", _/binary>> = Url) -> {ok, Url};
 wl(<<"cdn.embedly.com/", _/binary>> = Url) -> {ok, Url};
 wl(Url) ->
     case lists:dropwhile(fun(Re) ->
-                            re:run(Url, Re) =:= nomatch
-                         end,
-                         wl_res())
+        re:run(Url, Re) =:= nomatch
+    end,
+        wl_res())
     of
         [] -> false;
-        [_|_] -> {ok, Url}
+        [_ | _] -> {ok, Url}
     end.
 
 wl_res() ->

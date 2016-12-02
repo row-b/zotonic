@@ -30,7 +30,7 @@
     medium_props/1
 ]).
 
-observe_media_upload_rsc_props(#media_upload_rsc_props{medium=Medium, options=Opts}, Props, _Context) ->
+observe_media_upload_rsc_props(#media_upload_rsc_props{medium = Medium, options = Opts}, Props, _Context) ->
     Exif = proplists:get_value(exif, Medium, []),
     PropsForced = forced_props(Medium),
     PropsOverlay = overlay_props(Exif),
@@ -61,16 +61,16 @@ overlay_props(Exif) ->
         {location_lat, gps(proplists:get_value(gps_latitude, Exif))},
         {location_lng, gps(proplists:get_value(gps_longitude, Exif))}
     ],
-    [ {K,V} || {K,V} <- PropsOverlay, V =/= undefined ].
+    [{K, V} || {K, V} <- PropsOverlay, V =/= undefined].
 
-to_binary_point({X,Y}) ->
-    iolist_to_binary([ $+, integer_to_list(X), $+, integer_to_list(Y) ]);
+to_binary_point({X, Y}) ->
+    iolist_to_binary([$+, integer_to_list(X), $+, integer_to_list(Y)]);
 to_binary_point(undefined) ->
     undefined.
 
 % http://www.awaresystems.be/imaging/tiff/tifftags/privateifd/gps/gpslongitude.html
-gps([{ratio,D,DFrac},{ratio,M,MFrac},{ratio,S,SFrac}]) ->
-    (D/DFrac) + (M/MFrac/60) + (S/SFrac/3600);
+gps([{ratio, D, DFrac}, {ratio, M, MFrac}, {ratio, S, SFrac}]) ->
+    (D / DFrac) + (M / MFrac / 60) + (S / SFrac / 3600);
 gps(_) ->
     undefined.
 

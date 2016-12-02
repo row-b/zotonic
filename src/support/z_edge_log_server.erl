@@ -73,8 +73,8 @@ init(Args) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
-    {ok, #state{site=Site}, ?CLEANUP_TIMEOUT_LONG}.
+    ]),
+    {ok, #state{site = Site}, ?CLEANUP_TIMEOUT_LONG}.
 
 %% @spec handle_call(Request, From, State) -> {reply, Reply, State} |
 %%                                      {reply, Reply, State, Timeout} |
@@ -90,7 +90,7 @@ handle_call(check, _From, State) ->
             {reply, OK, State, ?CLEANUP_TIMEOUT_SHORT};
         {error, _} = Error ->
             {reply, Error, State, ?CLEANUP_TIMEOUT_LONG};
-        {rollback,{no_database_connection,_}} ->
+        {rollback, {no_database_connection, _}} ->
             {noreply, State, ?CLEANUP_TIMEOUT_LONG}
     end;
 
@@ -109,14 +109,13 @@ handle_cast(check, State) ->
             {noreply, State, ?CLEANUP_TIMEOUT_SHORT};
         {error, _} ->
             {noreply, State, ?CLEANUP_TIMEOUT_LONG};
-        {rollback,{no_database_connection,_}} ->
+        {rollback, {no_database_connection, _}} ->
             {noreply, State, ?CLEANUP_TIMEOUT_LONG}
     end;
 
 %% @doc Trap unknown casts
 handle_cast(Message, State) ->
     {stop, {unknown_cast, Message}, State}.
-
 
 
 %% @spec handle_info(Info, State) -> {noreply, State} |
@@ -149,58 +148,67 @@ code_change(_OldVsn, State, _Extra) ->
 do_check(Site) ->
     try
         Context = z_acl:sudo(z_context:new(Site)),
-        do_check_1(z_db:q("
+        do_check1(z_db:q("
                         select id,op,subject_id,predicate,object_id,edge_id
                         from edge_log
                         order by id
                         limit $1",
-                        [?CLEANUP_BATCH_SIZE],
-                        Context),
-                   Context)
+            [?CLEANUP_BATCH_SIZE],
+            Context),
+            Context)
     catch
         exit:{timeout, _} -> {ok, 0};
         throw:{error, econnrefused} -> false
     end.
 
 
-do_check_1([], _Context) ->
+do_check1([], _Context) ->
     {ok, 0};
-do_check_1(Rs, Context) ->
+do_check1(Rs, Context) ->
     RscIds = lists:usort(fetch_ids(Rs, [])),
     lists:foreach(fun(RscId) ->
-                    z_depcache:flush(RscId, Context)
-                  end,
-                  RscIds),
-    lists:foreach(fun({_Id,Op,SubjectId,Predicate,ObjectId,EdgeId}) ->
-                    PredName = z_convert:to_atom(Predicate),
-                    do_edge_notify(Op, SubjectId, PredName, ObjectId, EdgeId, Context)
-                  end, Rs),
-    Ranges = z_utils:ranges([ element(1,R) || R <- Rs ]),
+        z_depcache:flush(RscId, Context)
+    end,
+        RscIds),
+    lists:foreach(fun({_Id, Op, SubjectId, Predicate, ObjectId, EdgeId}) ->
+        PredName = z_convert:to_atom(Predicate),
+        do_edge_notify(Op, SubjectId, PredName, ObjectId, EdgeId, Context)
+    end, Rs),
+    Ranges = z_utils:ranges([element(1, R) || R <- Rs]),
     z_db:transaction(
-            fun(Ctx) ->
-                lists:foreach(fun
-                                ({A,A}) ->
-                                    z_db:q("delete from edge_log where id = $1", [A], Ctx);
-                                ({A,B}) ->
-                                    z_db:q("delete from edge_log where id >= $1 and id <= $2", [A,B], Ctx)
-                              end,
-                              Ranges)
-             end,
-             Context),
+        fun(Ctx) ->
+            lists:foreach(fun
+                ({A, A}) ->
+                    z_db:q("delete from edge_log where id = $1", [A], Ctx);
+                ({A, B}) ->
+                    z_db:q("delete from edge_log where id >= $1 and id <= $2", [A, B], Ctx)
+            end,
+                Ranges)
+        end,
+        Context),
     {ok, length(Rs)}.
 
 fetch_ids([], Acc) ->
     Acc;
-fetch_ids([{_Id,_Op,SubjectId,_Pred,ObjectId,_EdgeId}|Rs], Acc) ->
-    fetch_ids(Rs, [SubjectId,ObjectId|Acc]).
+fetch_ids([{_Id, _Op, SubjectId, _Pred, ObjectId, _EdgeId} | Rs], Acc) ->
+    fetch_ids(Rs, [SubjectId, ObjectId | Acc]).
 
 do_edge_notify(<<"DELETE">>, SubjectId, PredName, ObjectId, EdgeId, Context) ->
-    z_notifier:notify(#edge_delete{subject_id=SubjectId, predicate=PredName, object_id=ObjectId, edge_id=EdgeId}, Context),
+    z_notifier:notify(
+        #edge_delete{subject_id = SubjectId, predicate = PredName, object_id = ObjectId, edge_id = EdgeId},
+        Context
+    ),
     maybe_delete_dependent(ObjectId, Context);
 do_edge_notify(<<"UPDATE">>, SubjectId, PredName, ObjectId, EdgeId, Context) ->
-    z_notifier:notify(#edge_update{subject_id=SubjectId, predicate=PredName, object_id=ObjectId, edge_id=EdgeId}, Context);
+    z_notifier:notify(
+        #edge_update{subject_id = SubjectId, predicate = PredName, object_id = ObjectId, edge_id = EdgeId},
+        Context
+    );
 do_edge_notify(<<"INSERT">>, SubjectId, PredName, ObjectId, EdgeId, Context) ->
-    z_notifier:notify(#edge_insert{subject_id=SubjectId, predicate=PredName, object_id=ObjectId, edge_id=EdgeId}, Context).
+    z_notifier:notify(
+        #edge_insert{subject_id = SubjectId, predicate = PredName, object_id = ObjectId, edge_id = EdgeId},
+        Context
+    ).
 
 maybe_delete_dependent(Id, Context) ->
     case m_rsc:p_no_acl(Id, is_dependent, Context) of
@@ -218,7 +226,7 @@ delete_if_unconnected(Id, Context) ->
                      where r.is_dependent
                        and r.id = $1
                      limit 1",
-                    [Id], Context)
+        [Id], Context)
     of
         {true, false, undefined} -> m_rsc:delete(Id, z_acl:sudo(Context));
         _ -> ok

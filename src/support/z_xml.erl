@@ -26,8 +26,8 @@
 ]).
 
 
-%% @doc Escape a html text to valid a xml text so that it can be transported in XML.  Translates control characters to
-%% spaces, except for TAB, CR and LF.
+%% @doc Escape a html text to valid a xml text so that it can be transported in
+%% XML. Translates control characters to spaces, except for TAB, CR and LF.
 %% @spec escape(iolist()) -> iolist()
 escape(undefined) ->
     undefined;

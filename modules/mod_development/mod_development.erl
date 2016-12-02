@@ -157,7 +157,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 
 
-%% @doc Start a listener for a certain kind of debug information, echo it to the target id on the current page.
+%% @doc Start a listener for a certain kind of debug information, echo it to the
+%% target id on the current page.
 start_debug_stream(TargetId, What, Context) ->
     Context1 = z_context:prune_for_async(Context),
     z_session_page:spawn_link(?MODULE, page_debug_stream, [TargetId, What, Context1], Context1).

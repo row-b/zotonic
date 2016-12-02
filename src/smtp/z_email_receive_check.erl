@@ -20,20 +20,20 @@
 -author("Marc Worrell <marc@worrell.nl>").
 
 -export([
-         is_bulk/1,
-         is_auto/1,
-         is_bounce/2,
-         is_nonfatal_bounce/3
-        ]).
+    is_bulk/1,
+    is_auto/1,
+    is_bounce/2,
+    is_nonfatal_bounce/3
+]).
 
 -include_lib("zotonic.hrl").
 
 
 %% @doc Check if an e-mail message is a bulk message
 -spec is_bulk(#email_received{}) -> boolean().
-is_bulk(#email_received{headers=Headers}) ->
-           is_bulk_precedence(lists:keyfind(<<"x-precedence">>, 1, Headers))
-    orelse is_bulk_precedence(lists:keyfind(<<"precedence">>, 1, Headers)).
+is_bulk(#email_received{headers = Headers}) ->
+    is_bulk_precedence(lists:keyfind(<<"x-precedence">>, 1, Headers))
+        orelse is_bulk_precedence(lists:keyfind(<<"precedence">>, 1, Headers)).
 
 is_bulk_precedence(false) ->
     false;
@@ -48,14 +48,14 @@ is_bulk_precedence({_, S}) ->
 %% @doc Check if an e-mail message is an automatic reply or another kind of message.
 %%      This uses heuristics on the precedence and the subject of the e-mail.
 -spec is_auto(#email_received{}) -> boolean().
-is_auto(#email_received{headers=Headers, email=Email, from=EnvelopFrom}) ->
-           lists:keymember(<<"x-auto-response-suppress">>, 1, Headers)
-    orelse lists:keymember(<<"x-autorespond">>, 1, Headers)
-    orelse is_auto_precedence(lists:keyfind(<<"x-precedence">>, 1, Headers))
-    orelse is_auto_precedence(lists:keyfind(<<"precedence">>, 1, Headers))
-    orelse is_auto_submitted(lists:keyfind(<<"auto-submitted">>, 1, Headers))
-    orelse is_auto_subject(Email#email.subject)
-    orelse is_auto_from(EnvelopFrom).
+is_auto(#email_received{headers = Headers, email = Email, from = EnvelopFrom}) ->
+    lists:keymember(<<"x-auto-response-suppress">>, 1, Headers)
+        orelse lists:keymember(<<"x-autorespond">>, 1, Headers)
+        orelse is_auto_precedence(lists:keyfind(<<"x-precedence">>, 1, Headers))
+        orelse is_auto_precedence(lists:keyfind(<<"precedence">>, 1, Headers))
+        orelse is_auto_submitted(lists:keyfind(<<"auto-submitted">>, 1, Headers))
+        orelse is_auto_subject(Email#email.subject)
+        orelse is_auto_from(EnvelopFrom).
 
 is_auto_precedence(false) ->
     false;
@@ -68,13 +68,15 @@ is_auto_submitted({_, S}) ->
     z_convert:to_binary(z_string:to_lower(S)) =/= <<"no">>.
 
 is_auto_from(undefined) -> false;
-is_auto_from(EnvelopFrom) -> is_auto_from_1(z_convert:to_binary(z_string:to_lower(EnvelopFrom))).
+is_auto_from(EnvelopFrom) ->
+    is_auto_from_1(z_convert:to_binary(z_string:to_lower(EnvelopFrom))).
 
 is_auto_from_1(<<"mailer-daemon@", _/binary>>) -> true;
 is_auto_from_1(_) -> false.
 
 is_auto_subject(undefined) -> false;
-is_auto_subject(Subject) -> is_auto_subject_1(z_convert:to_binary(z_string:to_lower(Subject))).
+is_auto_subject(Subject) ->
+    is_auto_subject_1(z_convert:to_binary(z_string:to_lower(Subject))).
 
 is_auto_subject_1(<<"auto:"/utf8, _/binary>>) -> true;
 is_auto_subject_1(<<"automatic reply"/utf8>>) -> true;
@@ -94,7 +96,7 @@ is_auto_subject_1(_) -> false.
 
 %% @doc Check if this might be a bounce e-mail by inspecting the headers of a received e-mail.
 %% @todo Distinguish non-fatal bounces (like delivery delays, warnings etc)
--spec is_bounce({binary(),binary()}, [{binary(),binary()}]) -> boolean().
+-spec is_bounce({binary(), binary()}, [{binary(), binary()}]) -> boolean().
 is_bounce(Type, Headers) ->
     case proplists:get_value(<<"Return-Path">>, Headers) of
         <<"<>">> ->
@@ -106,11 +108,11 @@ is_bounce(Type, Headers) ->
             % Has header: "X-Failed-Recipients"
             % Content-Type: multipart/report
             % Subject: Delivery Status Notification (Failure)
-                   Type =:= {<<"multipart">>, <<"report">>}
-            orelse lists:keymember(<<"Diagnostic-Code">>, 1, Headers)
-            orelse lists:keymember(<<"X-Failed-Recipients">>, 1, Headers)
-            orelse is_from_daemon(Headers)
-            orelse is_delivery_status(Headers);
+            Type =:= {<<"multipart">>, <<"report">>}
+                orelse lists:keymember(<<"Diagnostic-Code">>, 1, Headers)
+                orelse lists:keymember(<<"X-Failed-Recipients">>, 1, Headers)
+                orelse is_from_daemon(Headers)
+                orelse is_delivery_status(Headers);
         _ ->
             false
     end.
@@ -157,7 +159,7 @@ contains({_, V}, P) ->
 % - Message part message/delivery-status with non fatal Status
 is_nonfatal_bounce(Type, Headers, Parts) ->
     is_nonfatal_subject(Headers)
-    orelse is_nonfatal_status(Type, Parts).
+        orelse is_nonfatal_status(Type, Parts).
 
 is_nonfatal_subject(Headers) ->
     case lists:keyfind(<<"Subject">>, 1, Headers) of
@@ -165,8 +167,8 @@ is_nonfatal_subject(Headers) ->
             false;
         {_, Subject} ->
             Subject1 = z_convert:to_binary(z_string:to_lower(Subject)),
-                   contains_1(Subject1, <<"delay">>)
-            orelse contains_1(Subject1, <<"warning">>)
+            contains_1(Subject1, <<"delay">>)
+                orelse contains_1(Subject1, <<"warning">>)
     end.
 
 contains_1(V, S) ->
@@ -176,17 +178,17 @@ contains_1(V, S) ->
     end.
 
 %% @doc Find the "message/delivery-status" part
-is_nonfatal_status({<<"multipart">>,<<"report">>}, Parts) ->
+is_nonfatal_status({<<"multipart">>, <<"report">>}, Parts) ->
     Status = [
         Body || {<<"message">>, <<"delivery-status">>, _Hs, _Disp, Body} <- Parts
     ],
     case Status of
-        [Body|_] ->
+        [Body | _] ->
             Body1 = binary:replace(Body, <<"\r\n\r\n">>, <<"\r\n">>, [global]),
             Hs = mochiweb_headers:to_list(mochiweb_headers:from_binary(<<Body1/binary, "\r\n\r\n">>)),
-                   is_action_delayed(Hs)
-            orelse is_nonfatal_diagnostic(Hs)
-            orelse is_nonfatal_code(Hs);
+            is_action_delayed(Hs)
+                orelse is_nonfatal_diagnostic(Hs)
+                orelse is_nonfatal_code(Hs);
         [] ->
             false
     end;

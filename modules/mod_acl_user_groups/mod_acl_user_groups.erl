@@ -70,43 +70,43 @@
 
 %% gen_server state record
 -record(state, {
-            site,
-            is_rebuild_publish=true,
-            is_rebuild_edit=true,
-            rebuilder_pid,
-            rebuilder_mref,
-            rebuilding,
-            table_edit = [],
-            table_publish = []
-        }).
+    site,
+    is_rebuild_publish = true,
+    is_rebuild_edit = true,
+    rebuilder_pid,
+    rebuilder_mref,
+    rebuilding,
+    table_edit = [],
+    table_publish = []
+}).
 
 
-event(#submit{message={delete_move, Args}}, Context) ->
+event(#submit{message = {delete_move, Args}}, Context) ->
     ToUGId = z_convert:to_integer(z_context:get_q_validated(<<"acl_user_group_id">>, Context)),
     {id, Id} = proplists:lookup(id, Args),
-    Ids = [ Id | m_hierarchy:children('acl_user_group', Id, Context) ],
+    Ids = [Id | m_hierarchy:children('acl_user_group', Id, Context)],
     case deletable(Ids, Context) andalso z_acl:rsc_editable(ToUGId, Context) of
         true ->
             Context1 = z_context:prune_for_async(Context),
             spawn(fun() ->
-                    ug_move_and_delete(Ids, ToUGId, Context1)
-                  end),
+                ug_move_and_delete(Ids, ToUGId, Context1)
+            end),
             z_render:wire({dialog_close, []}, Context);
         false ->
             z_render:growl(?__("Sorry, you are not allowed to delete this.", Context), Context)
     end;
-event(#postback{message={delete_all, Args}}, Context) ->
+event(#postback{message = {delete_all, Args}}, Context) ->
     {id, Id} = proplists:lookup(id, Args),
     IfEmpty = proplists:get_value(if_empty, Args, false),
-    Ids = [ Id | m_hierarchy:children('acl_user_group', Id, Context) ],
+    Ids = [Id | m_hierarchy:children('acl_user_group', Id, Context)],
     case not IfEmpty orelse not m_acl_user_group:is_used(Id, Context) of
         true ->
-            case deletable(Ids, Context)  of
+            case deletable(Ids, Context) of
                 true ->
                     Context1 = z_context:prune_for_async(Context),
                     spawn(fun() ->
-                            ug_delete(Ids, Context1)
-                          end),
+                        ug_delete(Ids, Context1)
+                    end),
                     z_render:wire({dialog_close, []}, Context);
                 false ->
                     z_render:growl(?__("Sorry, you are not allowed to delete this.", Context), Context)
@@ -122,23 +122,21 @@ event(#postback{message={delete_all, Args}}, Context) ->
 
 -spec ug_delete(list(m_rsc:resource_id()), z:context()) -> any().
 ug_delete(Ids, Context) ->
-    z_session_page:add_script(
-        z_render:wire({mask, [{message, ?__("Deleting...", Context)}]}, Context)
-    ),
+    delete_msg(Context),
     UGUserIds = in_user_groups(Ids, Context),
     Total = lists:sum([length(UIds) || {_, UIds} <- UGUserIds]),
     case unlink_all(UGUserIds, 0, Total, Context) of
         ok ->
             lists:foreach(fun(Id) ->
-                             m_rsc:delete(Id, Context)
-                          end,
-                          Ids),
+                m_rsc:delete(Id, Context)
+            end,
+                Ids),
             z_session_page:add_script(z_render:wire({unmask, []}, Context));
         {error, _} ->
             Context1 = z_render:wire([
-                    {unmask, []},
-                    {alert, [{message, ?__("Not all user groups could be deleted.", Context)}]}
-                ],
+                {unmask, []},
+                {alert, [{message, ?__("Not all user groups could be deleted.", Context)}]}
+            ],
                 Context),
             z_session_page:add_script(Context1)
 
@@ -146,23 +144,23 @@ ug_delete(Ids, Context) ->
 
 -spec ug_move_and_delete([pos_integer()], m_rsc:resource_id(), #context{}) -> ok.
 ug_move_and_delete(Ids, ToGroupId, Context) ->
-    z_session_page:add_script(z_render:wire({mask, [{message, ?__("Deleting...", Context)}]}, Context)),
+    delete_msg(Context),
     UGUserIds = in_user_groups(Ids, Context),
     Total = lists:sum([length(UIds) || {_, UIds} <- UGUserIds]),
-    ok = move_all(UGUserIds, ToGroupId, 0, Total+Total, Context),
+    ok = move_all(UGUserIds, ToGroupId, 0, Total + Total, Context),
     lists:foreach(fun(Id) ->
-                     m_rsc:delete(Id, Context)
-                  end,
-                  Ids),
+        m_rsc:delete(Id, Context)
+    end,
+        Ids),
     z_session_page:add_script(z_render:wire({unmask, []}, Context)),
     ok.
 
 in_user_groups(Ids, Context) ->
-    lists:flatten([ {Id, m_edge:subjects(Id, hasusergroup, Context)} || Id <- Ids ]).
+    lists:flatten([{Id, m_edge:subjects(Id, hasusergroup, Context)} || Id <- Ids]).
 
 unlink_all([], _N, _Total, _Context) ->
     ok;
-unlink_all([{UGId, UserIds}|Ids], N, Total, Context) ->
+unlink_all([{UGId, UserIds} | Ids], N, Total, Context) ->
     case unlink_users(UGId, UserIds, N, Total, Context) of
         {ok, N1} ->
             unlink_all(Ids, N1, Total, Context);
@@ -172,18 +170,18 @@ unlink_all([{UGId, UserIds}|Ids], N, Total, Context) ->
 
 unlink_users(_UGId, [], N, _Total, _Context) ->
     {ok, N};
-unlink_users(UGId, [UserId|UserIds], N, Total, Context) ->
+unlink_users(UGId, [UserId | UserIds], N, Total, Context) ->
     case m_edge:delete(UserId, hasusergroup, UGId, [no_touch], Context) of
         ok ->
-            maybe_progress(N, N+1, Total, Context),
-            unlink_users(UGId, UserIds, N+1, Total, Context);
+            maybe_progress(N, N + 1, Total, Context),
+            unlink_users(UGId, UserIds, N + 1, Total, Context);
         {error, _} = Error ->
             Error
     end.
 
 move_all([], _ToUGId, _N, _Total, _Context) ->
     ok;
-move_all([{UGId, UserIds}|Ids], ToUGId, N, Total, Context) ->
+move_all([{UGId, UserIds} | Ids], ToUGId, N, Total, Context) ->
     case move_link_users(UGId, ToUGId, UserIds, N, Total, Context) of
         {ok, N1} ->
             move_all(Ids, ToUGId, N1, Total, Context);
@@ -193,13 +191,13 @@ move_all([{UGId, UserIds}|Ids], ToUGId, N, Total, Context) ->
 
 move_link_users(_OldUGId, _UGId, [], N, _Total, _Context) ->
     {ok, N};
-move_link_users(OldUGId, UGId, [UserId|UserIds], N, Total, Context) ->
+move_link_users(OldUGId, UGId, [UserId | UserIds], N, Total, Context) ->
     case m_edge:insert(UserId, hasusergroup, UGId, [no_touch], Context) of
         {ok, _} ->
             case m_edge:delete(UserId, hasusergroup, OldUGId, [no_touch], Context) of
                 ok ->
-                    maybe_progress(N, N+1, Total, Context),
-                    move_link_users(OldUGId, UGId, UserIds, N+1, Total, Context);
+                    maybe_progress(N, N + 1, Total, Context),
+                    move_link_users(OldUGId, UGId, UserIds, N + 1, Total, Context);
                 {error, _} = Error ->
                     Error
             end;
@@ -216,7 +214,8 @@ maybe_progress(N1, N2, Total, Context) ->
     S2 = round(N2 / PerStep),
     case S1 of
         S2 -> ok;
-        _ -> z_session_page:add_script(z_render:wire({mask_progress, [{percent,S2}]}, Context))
+        _ ->
+            z_session_page:add_script(z_render:wire({mask_progress, [{percent, S2}]}, Context))
     end.
 
 deletable(Ids, Context) ->
@@ -224,8 +223,9 @@ deletable(Ids, Context) ->
 
 
 % @doc Per default users own their person record and creators own the created content.
-observe_acl_is_owner(#acl_is_owner{id=Id, user_id=Id}, _Context) -> true;
-observe_acl_is_owner(#acl_is_owner{user_id=UserId, creator_id=UserId}, _Context) -> true;
+observe_acl_is_owner(#acl_is_owner{id = Id, user_id = Id}, _Context) -> true;
+observe_acl_is_owner(#acl_is_owner{user_id = UserId, creator_id = UserId}, _Context) ->
+    true;
 observe_acl_is_owner(#acl_is_owner{}, _Context) -> undefined.
 
 observe_acl_is_allowed(AclIsAllowed, Context) ->
@@ -243,11 +243,20 @@ observe_acl_context_authenticated(_AclAuthenticated, Context) ->
 observe_acl_add_sql_check(AclAddSQLCheck, Context) ->
     acl_user_groups_checks:acl_add_sql_check(AclAddSQLCheck, Context).
 
-observe_hierarchy_updated(#hierarchy_updated{root_id= <<"$category">>, predicate=undefined}, Context) ->
+observe_hierarchy_updated(
+    #hierarchy_updated{root_id = <<"$category">>, predicate = undefined},
+    Context
+) ->
     rebuild(Context);
-observe_hierarchy_updated(#hierarchy_updated{root_id= <<"content_group">>, predicate=undefined}, Context) ->
+observe_hierarchy_updated(
+    #hierarchy_updated{root_id = <<"content_group">>, predicate = undefined},
+    Context
+) ->
     rebuild(Context);
-observe_hierarchy_updated(#hierarchy_updated{root_id= <<"acl_user_group">>, predicate=undefined}, Context) ->
+observe_hierarchy_updated(
+    #hierarchy_updated{root_id = <<"acl_user_group">>, predicate = undefined},
+    Context
+) ->
     rebuild(Context);
 observe_hierarchy_updated(#hierarchy_updated{}, _Context) ->
     ok.
@@ -269,9 +278,12 @@ observe_rsc_insert(#rsc_insert{}, Props, Context) ->
             Props
     end.
 
-observe_rsc_update_done(#rsc_update_done{id=Id, pre_is_a=PreIsA, post_is_a=PostIsA}=M, Context) ->
+observe_rsc_update_done(
+    #rsc_update_done{id = Id, pre_is_a = PreIsA, post_is_a = PostIsA} = M,
+    Context
+) ->
     check_hasusergroup(Id, M#rsc_update_done.post_props, Context),
-    case  lists:member('acl_user_group', PreIsA)
+    case lists:member('acl_user_group', PreIsA)
         orelse lists:member('acl_user_group', PostIsA)
     of
         true -> m_hierarchy:ensure('acl_user_group', Context);
@@ -279,7 +291,7 @@ observe_rsc_update_done(#rsc_update_done{id=Id, pre_is_a=PreIsA, post_is_a=PostI
     end.
 
 %% @doc Do now allow the deletion of a acl_user_group if that group is still used.
-observe_rsc_delete(#rsc_delete{id=Id, is_a=IsA}, Context) ->
+observe_rsc_delete(#rsc_delete{id = Id, is_a = IsA}, Context) ->
     case lists:member('acl_user_group', IsA) of
         true ->
             case m_acl_user_group:is_used(Id, Context) of
@@ -316,7 +328,7 @@ await_table(Context) ->
 -spec table(edit|publish, #context{}) -> ets:tab() | undefined.
 table(State, Context) when State =:= edit; State =:= publish ->
     try
-        gproc:get_value_shared({p,l,{z_context:site(Context), ?MODULE, State}})
+        gproc:get_value_shared({p, l, {z_context:site(Context), ?MODULE, State}})
     catch
         error:badarg ->
             undefined
@@ -339,7 +351,7 @@ await_table(State, Timeout, Context) when Timeout > 0 ->
     case table(State, Context) of
         undefined ->
             timer:sleep(10),
-            await_table(State, Timeout-10, Context);
+            await_table(State, Timeout - 10, Context);
         TId ->
             TId
     end.
@@ -355,27 +367,27 @@ lookup1(undefined, _Key) ->
 lookup1(TId, Key) ->
     case ets:lookup(TId, Key) of
         [] -> undefined;
-        [{_,V}|_] -> V
+        [{_, V} | _] -> V
     end.
 
 
 observe_admin_menu(#admin_menu{}, Acc, Context) ->
     [
-     #menu_item{id=admin_acl_user_groups,
-                parent=admin_auth,
-                label=?__("User groups", Context),
-                url={admin_menu_hierarchy, [{name, "acl_user_group"}]},
-                visiblecheck={acl, use, mod_acl_user_groups}},
-     #menu_item{id=admin_collaboration_groups,
-                parent=admin_auth,
-                label=?__("Collaboration groups", Context),
-                url={admin_overview_rsc, [{qcat, "acl_collaboration_group"}]}},
-     #menu_item{id=admin_content_groups,
-                parent=admin_auth,
-                label=?__("Access control rules", Context),
-                url={admin_acl_rules_rsc, []},
-                visiblecheck={acl, use, mod_acl_user_groups}}
-     |Acc].
+        #menu_item{id = admin_acl_user_groups,
+            parent = admin_auth,
+            label = ?__("User groups", Context),
+            url = {admin_menu_hierarchy, [{name, "acl_user_group"}]},
+            visiblecheck = {acl, use, mod_acl_user_groups}},
+        #menu_item{id = admin_collaboration_groups,
+            parent = admin_auth,
+            label = ?__("Collaboration groups", Context),
+            url = {admin_overview_rsc, [{qcat, "acl_collaboration_group"}]}},
+        #menu_item{id = admin_content_groups,
+            parent = admin_auth,
+            label = ?__("Access control rules", Context),
+            url = {admin_acl_rules_rsc, []},
+            visiblecheck = {acl, use, mod_acl_user_groups}}
+        | Acc].
 
 
 name(Context) ->
@@ -406,9 +418,9 @@ init(Args) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
+    ]),
     timer:send_after(10, rebuild),
-    {ok, #state{ site=Site, is_rebuild_publish=true, is_rebuild_edit=true}}.
+    {ok, #state{site = Site, is_rebuild_publish = true, is_rebuild_edit = true}}.
 
 handle_call(status, _From, State) ->
     Reply = {ok, [
@@ -423,45 +435,45 @@ handle_call(Message, _From, State) ->
 
 handle_cast(rebuild_publish, State) ->
     timer:send_after(100, rebuild),
-    {noreply, State#state{is_rebuild_publish=true}};
+    {noreply, State#state{is_rebuild_publish = true}};
 handle_cast(rebuild_edit, State) ->
     timer:send_after(750, rebuild),
-    {noreply, State#state{is_rebuild_edit=true}};
+    {noreply, State#state{is_rebuild_edit = true}};
 handle_cast(rebuild, State) ->
     handle_info(rebuild, State);
 handle_cast(Message, State) ->
     {stop, {unknown_cast, Message}, State}.
 
-handle_info(rebuild, #state{rebuilder_pid=undefined} = State) ->
+handle_info(rebuild, #state{rebuilder_pid = undefined} = State) ->
     State1 = maybe_rebuild(State),
     {noreply, State1};
-handle_info(rebuild, #state{rebuilder_pid=Pid} = State) when is_pid(Pid) ->
+handle_info(rebuild, #state{rebuilder_pid = Pid} = State) when is_pid(Pid) ->
     {noreply, State};
 
-handle_info({'DOWN', MRef, process, _Pid, normal}, #state{rebuilder_mref=MRef} = State) ->
+handle_info({'DOWN', MRef, process, _Pid, normal}, #state{rebuilder_mref = MRef} = State) ->
     lager:debug("[mod_acl_user_groups] rebuilder for ~p finished.",
-                [State#state.rebuilding]),
+        [State#state.rebuilding]),
     State1 = State#state{
-                    rebuilding=undefined,
-                    rebuilder_pid=undefined,
-                    rebuilder_mref=undefined
-                },
+        rebuilding = undefined,
+        rebuilder_pid = undefined,
+        rebuilder_mref = undefined
+    },
     State2 = maybe_rebuild(State1),
     {noreply, State2};
 
-handle_info({'DOWN', MRef, process, _Pid, Reason}, #state{rebuilder_mref=MRef} = State) ->
+handle_info({'DOWN', MRef, process, _Pid, Reason}, #state{rebuilder_mref = MRef} = State) ->
     lager:error("[mod_acl_user_groups] rebuilder for ~p down with reason ~p",
-                [State#state.rebuilding, Reason]),
+        [State#state.rebuilding, Reason]),
     State1 = case State#state.rebuilding of
-                publish -> State#state{is_rebuild_publish=true};
-                edit -> State#state{is_rebuild_edit=true}
-             end,
+        publish -> State#state{is_rebuild_publish = true};
+        edit -> State#state{is_rebuild_edit = true}
+    end,
     timer:send_after(500, rebuild),
     {noreply, State1#state{
-                    rebuilding=undefined,
-                    rebuilder_pid=undefined,
-                    rebuilder_mref=undefined
-                }};
+        rebuilding = undefined,
+        rebuilder_pid = undefined,
+        rebuilder_mref = undefined
+    }};
 
 handle_info({'ETS-TRANSFER', TId, _FromPid, publish}, State) ->
     lager:debug("[mod_acl_user_groups] 'ETS-TRANSFER' for 'publish' (~p)", [TId]),
@@ -502,21 +514,21 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 
 %% @doc Check if we need to start a rebuild process
-maybe_rebuild(#state{is_rebuild_publish=true} = State) ->
+maybe_rebuild(#state{is_rebuild_publish = true} = State) ->
     {Pid, MRef} = start_rebuilder(publish, State#state.site),
     State#state{
-        is_rebuild_publish=false,
-        rebuilder_pid=Pid,
-        rebuilding=publish,
-        rebuilder_mref=MRef
+        is_rebuild_publish = false,
+        rebuilder_pid = Pid,
+        rebuilding = publish,
+        rebuilder_mref = MRef
     };
-maybe_rebuild(#state{is_rebuild_edit=true} = State) ->
+maybe_rebuild(#state{is_rebuild_edit = true} = State) ->
     {Pid, MRef} = start_rebuilder(edit, State#state.site),
     State#state{
-        is_rebuild_edit=false,
-        rebuilder_pid=Pid,
-        rebuilding=edit,
-        rebuilder_mref=MRef
+        is_rebuild_edit = false,
+        rebuilder_pid = Pid,
+        rebuilding = edit,
+        rebuilder_mref = MRef
     };
 maybe_rebuild(#state{} = State) ->
     State.
@@ -525,33 +537,33 @@ maybe_rebuild(#state{} = State) ->
 start_rebuilder(EditState, Site) ->
     Self = self(),
     Pid = erlang:spawn_link(fun() ->
-                                Context = z_acl:sudo(z_context:new(Site)),
-                                acl_user_group_rebuilder:rebuild(Self, EditState, Context)
-                            end),
+        Context = z_acl:sudo(z_context:new(Site)),
+        acl_user_group_rebuilder:rebuild(Self, EditState, Context)
+    end),
     MRef = erlang:monitor(process, Pid),
     {Pid, MRef}.
 
 gproc_new_ets(TId, EditState, Site) ->
     Key = {Site, ?MODULE, EditState},
     try
-        gproc:unreg_shared({p,l,Key})
+        gproc:unreg_shared({p, l, Key})
     catch
         error:badarg -> ok
     end,
-    true = gproc:reg_shared({p,l,Key}, TId).
+    true = gproc:reg_shared({p, l, Key}, TId).
 
-store_new_ets(TId, publish, #state{table_publish=Ts} = State) ->
+store_new_ets(TId, publish, #state{table_publish = Ts} = State) ->
     Ts1 = drop_old_ets(Ts),
-    State#state{table_publish=[TId|Ts1]};
-store_new_ets(TId, edit, #state{table_edit=Ts} = State) ->
+    State#state{table_publish = [TId | Ts1]};
+store_new_ets(TId, edit, #state{table_edit = Ts} = State) ->
     Ts1 = drop_old_ets(Ts),
-    State#state{table_edit=[TId|Ts1]}.
+    State#state{table_edit = [TId | Ts1]}.
 
-drop_old_ets([A|Rest]) ->
+drop_old_ets([A | Rest]) ->
     lists:foreach(fun(TId) ->
-                    ets:delete(TId)
-                  end,
-                  Rest),
+        ets:delete(TId)
+    end,
+        Rest),
     [A];
 drop_old_ets([]) ->
     [].
@@ -577,15 +589,15 @@ manage_schema(Version, Context) ->
             % TODO: remove the above ACL groups from the Tree
             R = fun(N) -> m_rsc:rid(N, ContextDb) end,
             Tree = m_hierarchy:menu(acl_user_group, ContextDb),
-            NewTree = [ {R(acl_user_group_anonymous),
-                         [ {R(acl_user_group_members),
-                            [ {R(acl_user_group_editors),
-                               [ {R(acl_user_group_managers),
-                                  []
-                                 } ]
-                              } ]
-                           } ]
-                        } | Tree ],
+            NewTree = [{R(acl_user_group_anonymous),
+                [{R(acl_user_group_members),
+                    [{R(acl_user_group_editors),
+                        [{R(acl_user_group_managers),
+                            []
+                        }]
+                    }]
+                }]
+            } | Tree],
             m_hierarchy:save(acl_user_group, NewTree, ContextDb)
     end,
     ok.
@@ -594,49 +606,49 @@ manage_datamodel(Context) ->
     z_datamodel:manage(
         ?MODULE,
         #datamodel{
-            categories=
-                [
-                    {acl_user_group, meta,
-                        [
-                            {title, {trans, [{en, "User Group"}, {nl, "Gebruikersgroep"}]}}
-                        ]},
-                    {acl_collaboration_group, meta,
-                        [
-                            {title, {trans, [{en, "Collaboration Group"}, {nl, "Samenwerkingsgroep"}]}}
-                        ]}
-                ],
+            categories =
+            [
+                {acl_user_group, meta,
+                    [
+                        {title, {trans, [{en, "User Group"}, {nl, "Gebruikersgroep"}]}}
+                    ]},
+                {acl_collaboration_group, meta,
+                    [
+                        {title, {trans, [{en, "Collaboration Group"}, {nl, "Samenwerkingsgroep"}]}}
+                    ]}
+            ],
 
-            resources=
-                [
-                    {acl_user_group_anonymous,
-                        acl_user_group,
-                        [{title, {trans, [{en, "Anonymous"}, {nl, "Anoniem"}]}}]},
-                    {acl_user_group_members,
-                        acl_user_group,
-                        [{title, {trans, [{en, "Members"}, {nl, "Gebruikers"}]}}]},
-                    {acl_user_group_editors,
-                        acl_user_group,
-                        [{title, {trans, [{en, "Editors"}, {nl, "Redactie"}]}}]},
-                    {acl_user_group_managers,
-                        acl_user_group,
-                        [{title, {trans, [{en, "Managers"}, {nl, "Beheerders"}]}}]}
-                ],
+            resources =
+            [
+                {acl_user_group_anonymous,
+                    acl_user_group,
+                    [{title, {trans, [{en, "Anonymous"}, {nl, "Anoniem"}]}}]},
+                {acl_user_group_members,
+                    acl_user_group,
+                    [{title, {trans, [{en, "Members"}, {nl, "Gebruikers"}]}}]},
+                {acl_user_group_editors,
+                    acl_user_group,
+                    [{title, {trans, [{en, "Editors"}, {nl, "Redactie"}]}}]},
+                {acl_user_group_managers,
+                    acl_user_group,
+                    [{title, {trans, [{en, "Managers"}, {nl, "Beheerders"}]}}]}
+            ],
 
-            predicates=
-                [
-                    {hasusergroup,
-                        [{title, {trans, [{en, <<"In User Group">>},{nl, <<"In gebruikersgroep">>}]}}],
-                        [{person, acl_user_group}]
-                    },
-                    {hascollabmember,
-                        [{title, {trans, [{en, <<"Member">>},{nl, <<"Lid">>}]}}],
-                        [{acl_collaboration_group, person}]
-                    },
-                    {hascollabmanager,
-                        [{title, {trans, [{en, <<"Manager">>},{nl, <<"Beheerder">>}]}}],
-                        [{acl_collaboration_group, person}]
-                    }
-                ],
+            predicates =
+            [
+                {hasusergroup,
+                    [{title, {trans, [{en, <<"In User Group">>}, {nl, <<"In gebruikersgroep">>}]}}],
+                    [{person, acl_user_group}]
+                },
+                {hascollabmember,
+                    [{title, {trans, [{en, <<"Member">>}, {nl, <<"Lid">>}]}}],
+                    [{acl_collaboration_group, person}]
+                },
+                {hascollabmanager,
+                    [{title, {trans, [{en, <<"Manager">>}, {nl, <<"Beheerder">>}]}}],
+                    [{acl_collaboration_group, person}]
+                }
+            ],
             data = [
                 {acl_rules, acl_default_rules:get_default_rules()}
             ]
@@ -650,9 +662,15 @@ check_hasusergroup(UserId, P, Context) ->
             %% not submitted, do nothing
             ok;
         _ ->
-            GroupIds = lists:map(fun z_convert:to_integer/1, lists:filter(fun(<<>>) -> false; (_) -> true end,
-                                                                          HasUserGroup)),
+            GroupIds = lists:map(fun z_convert:to_integer/1, lists:filter(fun(<<>>) ->
+                false; (_) -> true end,
+                HasUserGroup)),
             PredId = m_predicate:name_to_id_check(hasusergroup, Context),
             m_edge:replace(UserId, PredId, GroupIds, Context)
     end.
 
+
+delete_msg(Context) ->
+    z_session_page:add_script(
+        z_render:wire({mask, [{message, ?__("Deleting...", Context)}]}, Context)
+    ).

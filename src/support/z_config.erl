@@ -21,11 +21,10 @@
 
 %% API export
 -export([
-         get/1,
-         get/2,
-
-         init_app_env/0
-        ]).
+    get/1,
+    get/2,
+    init_app_env/0
+]).
 
 
 -include_lib("zotonic.hrl").
@@ -69,12 +68,12 @@ get(Key) ->
 %% @doc Get value from config file, returning default value when not set (cached).
 -spec get(atom(), any()) -> any().
 get(Key, Default) ->
-	case application:get_env(zotonic, Key) of
-		undefined ->
-			Default;
-		{ok, Value} ->
-			Value
-	end.
+    case application:get_env(zotonic, Key) of
+        undefined ->
+            Default;
+        {ok, Value} ->
+            Value
+    end.
 
 default(timezone) -> <<"UTC">>;
 default(listen_ip) -> any;

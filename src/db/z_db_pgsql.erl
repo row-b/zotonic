@@ -28,20 +28,20 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-         code_change/3]).
+    code_change/3]).
 
 %% poolboy_worker callbacks
 -export([start_link/1]).
 
 %% z_db_worker callbacks
 -export([
-         test_connection/1,
-         squery/3,
-         equery/4,
-         get_raw_connection/1
-        ]).
+    test_connection/1,
+    squery/3,
+    equery/4,
+    get_raw_connection/1
+]).
 
--define(TERM_MAGIC_NUMBER, 16#01326A3A:1/big-unsigned-unit:32).
+-define(TERM_MAGIC_NUMBER, 16#01326A3A:1 / big - unsigned - unit:32).
 
 -define(IDLE_TIMEOUT, 60000).
 
@@ -84,7 +84,7 @@ equery(Worker, Sql, Parameters, Timeout) ->
 %% This function should not be used but currently is required by the
 %% install / upgrade routines. Can only be called from inside a
 %% z_db:transaction/2.
-get_raw_connection(#context{dbc=Worker}) when Worker =/= undefined ->
+get_raw_connection(#context{dbc = Worker}) when Worker =/= undefined ->
     gen_server:call(Worker, get_raw_connection).
 
 
@@ -95,25 +95,25 @@ get_raw_connection(#context{dbc=Worker}) when Worker =/= undefined ->
 init(Args) ->
     %% Start disconnected
     process_flag(trap_exit, true),
-    {ok, #state{conn=undefined, conn_args=Args}, ?IDLE_TIMEOUT}.
+    {ok, #state{conn = undefined, conn_args = Args}, ?IDLE_TIMEOUT}.
 
 
-handle_call(Cmd, _From, #state{conn=undefined, conn_args=Args}=State) ->
+handle_call(Cmd, _From, #state{conn = undefined, conn_args = Args} = State) ->
     case connect(Args) of
         {ok, Conn} ->
-            handle_call(Cmd, _From, State#state{conn=Conn});
+            handle_call(Cmd, _From, State#state{conn = Conn});
         {error, _} = E ->
             {reply, E, State}
     end;
 
-handle_call({squery, Sql}, _From, #state{conn=Conn}=State) ->
+handle_call({squery, Sql}, _From, #state{conn = Conn} = State) ->
     {reply, decode_reply(epgsql:squery(Conn, Sql)), State, ?IDLE_TIMEOUT};
 
 
-handle_call({equery, Sql, Params}, _From, #state{conn=Conn}=State) ->
+handle_call({equery, Sql, Params}, _From, #state{conn = Conn} = State) ->
     {reply, decode_reply(epgsql:equery(Conn, Sql, encode_values(Params))), State, ?IDLE_TIMEOUT};
 
-handle_call(get_raw_connection, _From, #state{conn=Conn}=State) ->
+handle_call(get_raw_connection, _From, #state{conn = Conn} = State) ->
     {reply, Conn, State, ?IDLE_TIMEOUT};
 
 handle_call(_Request, _From, State) ->
@@ -123,7 +123,7 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State, ?IDLE_TIMEOUT}.
 
-handle_info(disconnect, #state{conn=undefined} = State) ->
+handle_info(disconnect, #state{conn = undefined} = State) ->
     {noreply, State};
 handle_info(disconnect, State) ->
     Database = get_arg(dbdatabase, State#state.conn_args),
@@ -132,18 +132,18 @@ handle_info(disconnect, State) ->
     {noreply, disconnect(State)};
 handle_info(timeout, State) ->
     {noreply, disconnect(State)};
-handle_info({'EXIT', Pid, _Reason}, #state{conn=Pid} = State) ->
+handle_info({'EXIT', Pid, _Reason}, #state{conn = Pid} = State) ->
     % Unexpected EXIT from the connection
-    {noreply, State#state{conn=undefined}};
-handle_info({'EXIT', _Pid, _Reason}, #state{conn=undefined} = State) ->
+    {noreply, State#state{conn = undefined}};
+handle_info({'EXIT', _Pid, _Reason}, #state{conn = undefined} = State) ->
     % Expected EXIT after disconnect
     {noreply, State, hibernate};
 handle_info(_Info, State) ->
     {noreply, State, ?IDLE_TIMEOUT}.
 
-terminate(_Reason, #state{conn=undefined}) ->
+terminate(_Reason, #state{conn = undefined}) ->
     ok;
-terminate(_Reason, #state{conn=Conn}) ->
+terminate(_Reason, #state{conn = Conn}) ->
     _ = epgsql:close(Conn),
     ok.
 
@@ -168,52 +168,52 @@ connect(Args, RetryCt) ->
     Schema = get_arg(dbschema, Args),
     try
         case epgsql:connect(Hostname, Username, Password,
-                           [{database, Database}, {port, Port}]) of
+            [{database, Database}, {port, Port}]) of
             {ok, Conn} ->
                 case epgsql:squery(Conn, "SET search_path TO " ++ Schema) of
                     {ok, [], []} ->
                         {ok, Conn};
                     Error ->
-                        catch epgsql:close(Conn),
+                            catch epgsql:close(Conn),
                         {error, Error}
                 end;
             {error, econnrefused} ->
                 lager:warning("psql connection to ~p:~p refused (econnrefused), retrying in ~p sec (~p)",
-                              [Hostname, Port, ?CONNECT_RETRY_SLEEP div 1000, self()]),
+                    [Hostname, Port, ?CONNECT_RETRY_SLEEP div 1000, self()]),
                 timer:sleep(?CONNECT_RETRY_SLEEP),
-                connect(Args, RetryCt+10);
-            {error, {error,fatal,<<"53300">>,_ErrorMsg,_ErrorArgs}} ->
+                connect(Args, RetryCt + 10);
+            {error, {error, fatal, <<"53300">>, _ErrorMsg, _ErrorArgs}} ->
                 too_many_connections(Args, RetryCt);
             {error, <<"53300">>} ->
                 too_many_connections(Args, RetryCt);
             {error, _} = E ->
                 lager:warning("psql connection to ~p:~p returned error ~p",
-                              [Hostname, Port, E]),
+                    [Hostname, Port, E]),
                 E
         end
     catch
         A:B ->
             lager:error("psql connection to ~p:~p failed (exception ~p:~p), retrying in ~p sec (~p)",
-                        [Hostname, Port, A, B, ?CONNECT_RETRY_SLEEP div 1000, self()]),
+                [Hostname, Port, A, B, ?CONNECT_RETRY_SLEEP div 1000, self()]),
             timer:sleep(?CONNECT_RETRY_SLEEP),
-            connect(Args, RetryCt+1)
+            connect(Args, RetryCt + 1)
     end.
 
 too_many_connections(Args, RetryCt) ->
     Hostname = get_arg(dbhost, Args),
     Port = get_arg(dbport, Args),
     lager:warning("psql connection to ~p:~p refused (too many connections), retrying in ~p msec (~p)",
-                  [Hostname, Port, ?CONNECT_RETRY_SHORT, self()]),
+        [Hostname, Port, ?CONNECT_RETRY_SHORT, self()]),
     z_db_pool:close_connections(),
     timer:sleep(?CONNECT_RETRY_SHORT),
-    connect(Args, RetryCt+1).
+    connect(Args, RetryCt + 1).
 
 
-disconnect(#state{conn=undefined} = State) ->
+disconnect(#state{conn = undefined} = State) ->
     State;
-disconnect(#state{conn=Conn} = State) ->
+disconnect(#state{conn = Conn} = State) ->
     _ = epgsql:close(Conn),
-    State#state{conn=undefined}.
+    State#state{conn = undefined}.
 
 get_arg(K, Args) ->
     maybe_default(K, proplists:get_value(K, Args)).
@@ -266,9 +266,9 @@ decode_value(null) ->
     undefined;
 decode_value(<<?TERM_MAGIC_NUMBER, B/binary>>) ->
     binary_to_term(B);
-decode_value({H,M,S}) when is_float(S) ->
-    {H,M,trunc(S)};
-decode_value({{Y,Mm,D},{H,M,S}}) when is_float(S) ->
-    {{Y,Mm,D},{H,M,trunc(S)}};
+decode_value({H, M, S}) when is_float(S) ->
+    {H, M, trunc(S)};
+decode_value({{Y, Mm, D}, {H, M, S}}) when is_float(S) ->
+    {{Y, Mm, D}, {H, M, trunc(S)}};
 decode_value(V) ->
     V.

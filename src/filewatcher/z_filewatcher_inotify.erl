@@ -30,7 +30,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([start_link/0]).
 
--record(state, {port, executable, timers=[]}).
+-record(state, {port, executable, timers = []}).
 
 %% interface functions
 -export([
@@ -66,7 +66,7 @@ is_installed() ->
 %% @doc Initiates the server.
 init([Executable]) ->
     process_flag(trap_exit, true),
-    State = #state{executable=Executable},
+    State = #state{executable = Executable},
     os:cmd("killall inotifywait"),
     {ok, State, 0}.
 
@@ -87,30 +87,30 @@ handle_cast(Message, State) ->
 %% @doc Reading a line from the inotifywait program. Sets a timer to
 %% prevent duplicate file changed message for the same filename
 %% (e.g. if a editor saves a file twice for some reason).
-handle_info({Port, {data, {eol, Line}}}, State=#state{port=Port, timers=Timers}) ->
+handle_info({Port, {data, {eol, Line}}}, State = #state{port = Port, timers = Timers}) ->
     case re:run(Line, "^(.+) (MODIFY|CREATE|DELETE) (.+)", [{capture, all_but_first, list}]) of
         nomatch ->
             {noreply, State};
         {match, [Path, Verb, File]} ->
             Filename = filename:join(Path, File),
             Timers1 = z_filewatcher_handler:set_timer(Filename, verb(Verb), Timers),
-            {noreply, State#state{timers=Timers1}}
+            {noreply, State#state{timers = Timers1}}
     end;
 
 %% @doc Launch the actual filechanged notification
-handle_info({filechange, Verb, Filename}, State=#state{timers=Timers}) ->
+handle_info({filechange, Verb, Filename}, State = #state{timers = Timers}) ->
     z_filewatcher_handler:file_changed(Verb, Filename),
-    {noreply, State#state{timers=lists:keydelete(Filename, 1, Timers)}};
+    {noreply, State#state{timers = lists:keydelete(Filename, 1, Timers)}};
 
-handle_info({Port,{exit_status,Status}}, State=#state{port=Port}) ->
+handle_info({Port, {exit_status, Status}}, State = #state{port = Port}) ->
     lager:error("[inotify] inotify port closed with ~p, restarting in 5 seconds.", [Status]),
-    {noreply, State#state{port=undefined}, 5000};
+    {noreply, State#state{port = undefined}, 5000};
 
-handle_info({'EXIT', Port, _}, State=#state{port=Port}) ->
+handle_info({'EXIT', Port, _}, State = #state{port = Port}) ->
     lager:error("[inotify] inotify port closed, restarting in 5 seconds."),
-    {noreply, State#state{port=undefined}, 5000};
+    {noreply, State#state{port = undefined}, 5000};
 
-handle_info(timeout, #state{port=undefined} = State) ->
+handle_info(timeout, #state{port = undefined} = State) ->
     lager:info("[inotify] Starting inotify file monitor."),
     {noreply, start_inotify(State)};
 handle_info(timeout, State) ->
@@ -124,10 +124,10 @@ handle_info(_Info, State) ->
 %% terminate. It should be the opposite of Module:init/1 and do any necessary
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
-terminate(_Reason, #state{port=undefined}) ->
+terminate(_Reason, #state{port = undefined}) ->
     ok;
-terminate(_Reason, #state{port=Port}) ->
-    catch erlang:port_close(Port),
+terminate(_Reason, #state{port = Port}) ->
+        catch erlang:port_close(Port),
     os:cmd("killall inotifywait"),
     ok.
 
@@ -141,11 +141,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% support functions
 %%====================================================================
 
-start_inotify(State=#state{executable=Executable}) ->
+start_inotify(State = #state{executable = Executable}) ->
     % os:cmd("killall inotifywait"),
-    Args = ["-q", "-e", "modify,create,delete", "-m", "-r" | z_filewatcher_sup:watch_dirs() ],
+    Args = ["-q", "-e", "modify,create,delete", "-m", "-r" | z_filewatcher_sup:watch_dirs()],
     Port = erlang:open_port({spawn_executable, Executable}, [{args, Args}, {line, 10240}, exit_status]),
-    State#state{port=Port}.
+    State#state{port = Port}.
 
 verb("CREATE") -> create;
 verb("MODIFY") -> modify;

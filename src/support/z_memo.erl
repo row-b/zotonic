@@ -23,66 +23,66 @@
 -author("Marc Worrell <marc@worrell.nl>").
 
 -export([
-	enable/0,
-	disable/0,
-	is_enabled/1,
-	set_userid/1,
-	set/2,
-	set/3,
-	get/1,
-	get/2,
-	delete/1
+    enable/0,
+    disable/0,
+    is_enabled/1,
+    set_userid/1,
+    set/2,
+    set/3,
+    get/1,
+    get/2,
+    delete/1
 ]).
 
 -include_lib("include/zotonic.hrl").
 
 %% @doc Enable memoization for this process. You need to call set_userid/1 before memoization is effective.
 enable() ->
-	erlang:put(is_memo, true).
+    erlang:put(is_memo, true).
 
 %% @doc Disable memoization for this process, also cleans up the possible depcache memoization.
 disable() ->
     z_depcache:flush_process_dict(),
-	erlang:erase(is_memo),
-	erlang:erase(memo_userid).
+    erlang:erase(is_memo),
+    erlang:erase(memo_userid).
 
 %% @doc Set the user id for which we memo values.  Called by z_auth on session initialization.
 set_userid(AuthUserId) ->
-	case erlang:get(is_memo) of
-		true -> erlang:put(memo_userid, {ok, AuthUserId});
-		_ -> error
-	end.
+    case erlang:get(is_memo) of
+        true -> erlang:put(memo_userid, {ok, AuthUserId});
+        _ -> error
+    end.
 
 %% @doc Check if memoization is enabled for the current user/process.  Disabled when in a sudo action.
-is_enabled(#context{acl=admin}) ->
-	false;
-is_enabled(#context{user_id=UserId}) ->
-	case erlang:get(memo_userid) of
-		{ok, UserId} -> true;
-		_ -> false
-	end.
+is_enabled(#context{acl = admin}) ->
+    false;
+is_enabled(#context{user_id = UserId}) ->
+    case erlang:get(memo_userid) of
+        {ok, UserId} -> true;
+        _ -> false
+    end.
 
 %% @doc Check if the key is stored.
 get(Key) ->
-	erlang:get(Key).
+    erlang:get(Key).
 
 get(Key, Context) ->
-	case is_enabled(Context) of
-		true -> erlang:get(Key);
-		false -> undefined
-	end.
+    case is_enabled(Context) of
+        true -> erlang:get(Key);
+        false -> undefined
+    end.
 
 %% @doc Store a key if memoization is set.
 set(Key, Value) ->
-	erlang:put(Key, Value),
-	Value.
+    erlang:put(Key, Value),
+    Value.
 
 set(Key, Value, Context) ->
-	case is_enabled(Context) of
-		true -> erlang:put(Key, Value);
-		false -> nop
-	end,
-	Value.
+    case is_enabled(Context) of
+        true -> erlang:put(Key, Value);
+        false -> nop
+    end,
+    Value.
 
 delete(Key) ->
     erlang:erase(Key).

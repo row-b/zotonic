@@ -60,7 +60,7 @@ default_language(Context) ->
 
 
 %% @doc Check if the language code code is a valid language.
--spec is_valid(Code::binary() | any()) -> boolean().
+-spec is_valid(Code :: binary() | any()) -> boolean().
 is_valid(Code) when is_binary(Code) ->
     Languages = all_languages(),
     proplists:get_value(Code, Languages) /= undefined;
@@ -69,7 +69,7 @@ is_valid(Code) ->
 
 
 %% @doc Translate a language-code to an atom.
--spec to_language_atom(Code:: list() | binary()) -> {ok, atom()} | {error, not_a_language}.
+-spec to_language_atom(Code :: list() | binary()) -> {ok, atom()} | {error, not_a_language}.
 to_language_atom(Code) when is_binary(Code) ->
     case is_valid(Code) of
         false -> {error, not_a_language};
@@ -81,7 +81,7 @@ to_language_atom(Code) ->
 
 %% @doc Return the fallback language (the base language);  if no fallback language is
 %%      found, returns the default language.
--spec fallback_language(Code::binary() | any() | undefined, #context{}) -> atom().
+-spec fallback_language(Code :: binary() | any() | undefined, #context{}) -> atom().
 fallback_language(Code, Context) when Code =:= undefined ->
     default_language(Context);
 fallback_language(Code, Context) when is_binary(Code) ->
@@ -99,13 +99,13 @@ fallback_language(Code, Context) ->
 
 
 %% @doc Returns the English language name.
--spec english_name(Code::atom()) -> binary() | undefined.
+-spec english_name(Code :: atom()) -> binary() | undefined.
 english_name(Code) ->
     get_property(Code, name_en).
 
 
 %% @doc Check if the given language is a rtl language.
--spec is_rtl(Code::binary() | any()) -> boolean().
+-spec is_rtl(Code :: binary() | any()) -> boolean().
 is_rtl(Code) ->
     get_property(Code, direction) == <<"RTL">>.
 
@@ -122,7 +122,7 @@ is_rtl(Code) ->
 %%          (ISO 3166-2).
 %%      -   script (only for script variations): 4-letter script code (ISO 15924); if omitted: Latn.
 %%      -   direction: (if omitted: LTR) or RTL.
--spec properties(Code::binary() | any()) -> list().
+-spec properties(Code :: binary() | any()) -> list().
 properties(Code) when is_binary(Code) ->
     Data = proplists:get_value(Code, all_languages()),
     properties(Code, Data);
@@ -131,7 +131,7 @@ properties(Code) ->
 
 
 %% @private
--spec properties(Code::binary() | any(), list()) -> list().
+-spec properties(Code :: binary() | any(), list()) -> list().
 properties(Code, Data) when is_binary(Code) ->
     [
         {language, proplists:get_value(language, Data)},
@@ -151,9 +151,13 @@ properties(Code, Data) ->
 %% @doc Sorts a properties list.
 -spec sort_properties(List :: list(), SortKey :: atom()) -> list().
 sort_properties(List, SortKey) ->
-    lists:sort(fun({_, PropsA}, {_, PropsB}) ->
-        z_string:to_lower(proplists:get_value(SortKey, PropsA)) =< z_string:to_lower(proplists:get_value(SortKey, PropsB))
-    end, List).
+    lists:sort(
+        fun({_, PropsA}, {_, PropsB}) ->
+            z_string:to_lower(proplists:get_value(SortKey, PropsA)) =<
+                z_string:to_lower(proplists:get_value(SortKey, PropsB))
+        end,
+        List
+    ).
 
 
 %% @doc List of language data.
@@ -169,9 +173,9 @@ all_languages1(List) ->
         Language1 = {Code, properties(Code, Data)},
         case proplists:get_value(sublanguages, Data) of
             undefined ->
-                [Language1|Acc];
+                [Language1 | Acc];
             SubLanguages ->
-                [Language1|Acc ++ all_languages1(SubLanguages)]
+                [Language1 | Acc ++ all_languages1(SubLanguages)]
         end
     end, [], List).
 
@@ -180,20 +184,21 @@ all_languages1(List) ->
 -spec main_languages() -> list().
 main_languages() ->
     lists:foldl(fun({Code, Data}, Acc) ->
-        [{Code, properties(Code, Data)}|Acc]
+        [{Code, properties(Code, Data)} | Acc]
     end, [], languages()).
 
 
 %% @private
 %% Gets a property from an item retrieved from *all* languages.
--spec get_property(Code::binary() | any(), Key:: atom()) -> binary() | undefined.
+-spec get_property(Code :: binary() | any(), Key :: atom()) -> binary() | undefined.
 get_property(Code, Key) ->
     get_property_from_list(Code, Key, all_languages()).
 
 
 %% @private
 %% Gets a property from an item retrieved from specified list
--spec get_property_from_list(Code::binary() | any(), Key:: atom(), List:: list()) -> binary() | list() | undefined.
+-spec get_property_from_list(Code :: binary() | any(), Key :: atom(), List :: list()) ->
+    binary() | list() | undefined.
 get_property_from_list(Code, Key, List) when is_binary(Code) ->
     case proplists:get_value(Code, List) of
         undefined -> undefined;

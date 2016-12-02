@@ -82,7 +82,7 @@ index_ref(#context{} = Context) ->
 
 %% @doc Find all .po files in all modules and the active site.
 %% This is an active scan, not designed to be fast.
--spec translations(z:context()) -> [ {Module :: atom(), [{Language :: atom(), filelib:filename()}]}].
+-spec translations(z:context()) -> [{Module :: atom(), [{Language :: atom(), filelib:filename()}]}].
 translations(Context) ->
     translations1(Context).
 
@@ -90,25 +90,25 @@ translations(Context) ->
 %% @spec find(What, Name, Context) -> {ok, #module_index{}} | {error, Reason}
 find(What, Name, Context) when What =:= lib; What =:= template ->
     case ets:lookup(?MODULE_INDEX,
-                    #module_index_key{
-                        site=z_context:site(Context),
-                        type=What,
-                        name=z_convert:to_binary(Name)
-                    })
+        #module_index_key{
+            site = z_context:site(Context),
+            type = What,
+            name = z_convert:to_binary(Name)
+        })
     of
         [] -> {error, enoent};
-        [#module_index{} = M|_] -> {ok, M}
+        [#module_index{} = M | _] -> {ok, M}
     end;
 find(What, Name, Context) ->
     case ets:lookup(?MODULE_INDEX,
-                    #module_index_key{
-                        site=z_context:site(Context),
-                        type=What,
-                        name=Name
-                    })
+        #module_index_key{
+            site = z_context:site(Context),
+            type = What,
+            name = Name
+        })
     of
         [] -> {error, enoent};
-        [#module_index{} = M|_] -> {ok, M}
+        [#module_index{} = M | _] -> {ok, M}
     end.
 
 
@@ -124,10 +124,10 @@ all(What, #context{} = Context) ->
     ActiveDirs = z_module_manager:active_dir(Context),
     [
         #module_index{
-            key=#module_index_key{name=F#mfile.name},
-            module=F#mfile.module,
-            filepath=F#mfile.filepath,
-            erlang_module=F#mfile.erlang_module
+            key = #module_index_key{name = F#mfile.name},
+            module = F#mfile.module,
+            filepath = F#mfile.filepath,
+            erlang_module = F#mfile.erlang_module
         }
         || F <- scan_all(What, ActiveDirs)
     ].
@@ -173,10 +173,10 @@ init(SiteProps) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
+    ]),
     Context = z_context:new(Site),
     z_notifier:observe(module_ready, self(), Context),
-    {ok, #state{context=Context}}.
+    {ok, #state{context = Context}}.
 
 
 %% @spec handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -211,35 +211,35 @@ handle_call(Message, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @doc Scan for all scomps etc. for the context given.
 
-handle_cast({module_ready, _NotifyContext}, #state{scanner_pid=undefined}=State) ->
+handle_cast({module_ready, _NotifyContext}, #state{scanner_pid = undefined} = State) ->
     flush(),
 
     % Start the scan in the background. Scanning can take a considerable amount
     % of time, especially on slower hardware.
     Self = self(),
     Pid = spawn_link(fun() ->
-            Scanned = scan(State#state.context),
-            gen_server:cast(Self, {scanned_items, Scanned})
-        end),
+        Scanned = scan(State#state.context),
+        gen_server:cast(Self, {scanned_items, Scanned})
+    end),
 
-    {noreply, State#state{scanner_pid=Pid}};
+    {noreply, State#state{scanner_pid = Pid}};
 
-handle_cast({module_ready, _NotifyContext}, #state{scanner_pid=Pid}=State) when is_pid(Pid) ->
+handle_cast({module_ready, _NotifyContext}, #state{scanner_pid = Pid} = State) when is_pid(Pid) ->
     %% The scanner is still busy, just let it continue.
     flush(),
     {noreply, State};
 
 %% @doc Receive the scanned items.
 handle_cast({scanned_items, Scanned}, State) ->
-    State1 = State#state{scanner_pid=undefined},
+    State1 = State#state{scanner_pid = undefined},
     NewState = State1#state{
-        scomps      = proplists:get_value(scomp, Scanned),
-        actions     = proplists:get_value(action, Scanned),
-        validators  = proplists:get_value(validator, Scanned),
-        models      = proplists:get_value(model, Scanned),
-        templates   = proplists:get_value(template, Scanned),
-        lib         = proplists:get_value(lib, Scanned),
-        services    = proplists:get_value(service, Scanned)
+        scomps = proplists:get_value(scomp, Scanned),
+        actions = proplists:get_value(action, Scanned),
+        validators = proplists:get_value(validator, Scanned),
+        models = proplists:get_value(model, Scanned),
+        templates = proplists:get_value(template, Scanned),
+        lib = proplists:get_value(lib, Scanned),
+        services = proplists:get_value(service, Scanned)
     },
     case NewState =/= State1 of
         true ->
@@ -292,14 +292,14 @@ translations1(Context) ->
         {priv, z_utils:lib_dir(priv)}          %% core modules translations
         | z_module_manager:active_dir(Context) %% other module translations
     ],
-    POs = [{M,F} || #mfile{filepath=F, module=M} <- scan_subdir(translation, "translations", "", ".po", Dirs) ],
+    POs = [{M, F} || #mfile{filepath = F, module = M} <- scan_subdir(translation, "translations", "", ".po", Dirs)],
 
-    ByModule = lists:foldl(fun({M,F}, Acc) ->
-                                dict:append(M, F, Acc)
-                           end,
-                           dict:new(),
-                           POs),
-    [{M,tag_with_lang(POFiles)} || {M,POFiles} <- z_module_manager:prio_sort(dict:to_list(ByModule))].
+    ByModule = lists:foldl(fun({M, F}, Acc) ->
+        dict:append(M, F, Acc)
+    end,
+        dict:new(),
+        POs),
+    [{M, tag_with_lang(POFiles)} || {M, POFiles} <- z_module_manager:prio_sort(dict:to_list(ByModule))].
 
 tag_with_lang(POFiles) ->
     [{pofile_to_lang(POFile), POFile} || POFile <- POFiles].
@@ -311,10 +311,10 @@ pofile_to_lang(POFile) ->
 lookup_all(true, List) ->
     [
         #module_index{
-            key=#module_index_key{name=F#mfile.name},
-            module=F#mfile.module,
-            filepath=F#mfile.filepath,
-            erlang_module=F#mfile.erlang_module
+            key = #module_index_key{name = F#mfile.name},
+            module = F#mfile.module,
+            filepath = F#mfile.filepath,
+            erlang_module = F#mfile.erlang_module
         }
         || F <- List
     ];
@@ -323,24 +323,24 @@ lookup_all(Name, List) ->
 
 lookup_all1(_Name, [], Acc) ->
     lists:reverse(Acc);
-lookup_all1(Name, [#mfile{name=Name} = F|T], Acc) ->
+lookup_all1(Name, [#mfile{name = Name} = F | T], Acc) ->
     M = #module_index{
-        key=#module_index_key{name=Name},
-        module=F#mfile.module,
-        filepath=F#mfile.filepath,
-        erlang_module=F#mfile.erlang_module
+        key = #module_index_key{name = Name},
+        module = F#mfile.module,
+        filepath = F#mfile.filepath,
+        erlang_module = F#mfile.erlang_module
     },
-    lookup_all1(Name, T, [M|Acc]);
-lookup_all1(Name, [_|T], Acc) ->
+    lookup_all1(Name, T, [M | Acc]);
+lookup_all1(Name, [_ | T], Acc) ->
     lookup_all1(Name, T, Acc).
 
 
 %% @doc Find the first template with matching name
 lookup_first(_Name, []) ->
     {error, enoent};
-lookup_first(Name, [#mfile{name=Name} = M|_]) ->
+lookup_first(Name, [#mfile{name = Name} = M | _]) ->
     {ok, M};
-lookup_first(Name, [_|T]) ->
+lookup_first(Name, [_ | T]) ->
     lookup_first(Name, T).
 
 
@@ -349,7 +349,7 @@ scan(Context) ->
     ActiveDirs = z_module_manager:active_dir(Context),
     [
         {What, scan_subdir(What, ActiveDirs)}
-        || What <- [ template, lib, scomp, action, validator, model, service ]
+        || What <- [template, lib, scomp, action, validator, model, service]
     ].
 
 
@@ -358,15 +358,15 @@ scan_subdir(What, ActiveDirs) ->
     {Subdir, Prefix, Extension} = subdir(What),
     scan_subdir(What, Subdir, Prefix, Extension, ActiveDirs).
 
-subdir(template)   -> { "templates",   "",           "" };
-subdir(lib)        -> { "lib",         "",           "" };
-subdir(translation)-> { "translations","",           ".po" };
-subdir(scomp)      -> { "scomps",      "scomp_",     ".erl" };
-subdir(action)     -> { "actions",     "action_",    ".erl" };
-subdir(validator)  -> { "validators",  "validator_", ".erl" };
-subdir(model)      -> { "models",      "m_",         ".erl" };
-subdir(service)    -> { "services",    "service_",   ".erl" };
-subdir(erlang)     -> { "support",     "",           ".erl" }.
+subdir(template) -> {"templates", "", ""};
+subdir(lib) -> {"lib", "", ""};
+subdir(translation) -> {"translations", "", ".po"};
+subdir(scomp) -> {"scomps", "scomp_", ".erl"};
+subdir(action) -> {"actions", "action_", ".erl"};
+subdir(validator) -> {"validators", "validator_", ".erl"};
+subdir(model) -> {"models", "m_", ".erl"};
+subdir(service) -> {"services", "service_", ".erl"};
+subdir(erlang) -> {"support", "", ".erl"}.
 
 
 %% @doc Find all files, for the all/2 function.
@@ -379,12 +379,12 @@ scan_all(What, ActiveDirs) ->
 %% @spec scan_subdir(What, Subdir, Prefix, Extension, context()) -> [ {ModuleAtom, {ModuleDir, [{Name, File}]}} ]
 scan_subdir(What, Subdir, Prefix, Extension, ActiveDirs) ->
     ExtensionRe = case Extension of
-                        "" -> "";
-                        "."++_ -> "\\" ++ Extension ++ "$"
-                  end,
+        "" -> "";
+        "." ++ _ -> "\\" ++ Extension ++ "$"
+    end,
     Scan1 = fun({Module, Dir}, Acc) ->
-                scan_moddir(What, Module, Dir, Subdir, Prefix, Extension, ExtensionRe, Acc)
-            end,
+        scan_moddir(What, Module, Dir, Subdir, Prefix, Extension, ExtensionRe, Acc)
+    end,
     lists:sort(fun mfile_compare/2, lists:flatten(lists:foldl(Scan1, [], ActiveDirs))).
 
 scan_moddir(What, Module, Dir, Subdir, _Prefix, _Extension, _ExtensionRe, Acc)
@@ -396,39 +396,40 @@ scan_moddir(What, Module, Dir, Subdir, _Prefix, _Extension, _ExtensionRe, Acc)
             Prio = z_module_manager:prio(Module),
             [[
                 #mfile{
-                    filepath=iolist_to_binary(filename:join([Dir, Subdir, F])),
-                    name=convert_name(What, F),
-                    module=Module,
-                    erlang_module=undefined,
-                    prio=Prio
+                    filepath = iolist_to_binary(filename:join([Dir, Subdir, F])),
+                    name = convert_name(What, F),
+                    module = Module,
+                    erlang_module = undefined,
+                    prio = Prio
                 }
                 || F <- Files
-            ] | Acc ]
+            ] | Acc]
     end;
 scan_moddir(What, Module, Dir, Subdir, Prefix, Extension, ExtensionRe, Acc) ->
     {Dir1, Pattern, PrefixLen} =
-            case Prefix of
-                    [] ->
-                        {filename:join([Dir, Subdir]), ".*" ++ ExtensionRe, 0};
-                    _ ->
-                        Prefix1 = Prefix ++ module2prefix(Module) ++ "_",
-                        {filename:join([Dir, Subdir]), Prefix1 ++ ".*" ++ ExtensionRe, length(Prefix1)}
-            end,
-    Files = filelib:fold_files(Dir1, Pattern, true, fun(F1,Acc1) -> [F1 | Acc1] end, []),
+        case Prefix of
+            [] ->
+                {filename:join([Dir, Subdir]), ".*" ++ ExtensionRe, 0};
+            _ ->
+                Prefix1 = Prefix ++ module2prefix(Module) ++ "_",
+                {filename:join([Dir, Subdir]), Prefix1 ++ ".*" ++ ExtensionRe, length(Prefix1)}
+        end,
+    Files = filelib:fold_files(Dir1, Pattern, true, fun(F1, Acc1) ->
+        [F1 | Acc1] end, []),
     case Files of
         [] ->
             Acc;
-        _  ->
+        _ ->
             [[
                 #mfile{
-                    filepath=iolist_to_binary(F),
-                    name=convert_name(What, scan_remove_prefix_ext(F, PrefixLen, Extension)),
-                    module=Module,
-                    erlang_module=opt_erlang_module(F, Extension),
-                    prio=z_module_manager:prio(Module)
+                    filepath = iolist_to_binary(F),
+                    name = convert_name(What, scan_remove_prefix_ext(F, PrefixLen, Extension)),
+                    module = Module,
+                    erlang_module = opt_erlang_module(F, Extension),
+                    prio = z_module_manager:prio(Module)
                 }
                 || F <- Files
-            ] | Acc ]
+            ] | Acc]
     end.
 
 
@@ -454,9 +455,9 @@ opt_erlang_module(_Filepath, _Ext) ->
 
 
 %% @doc Order function for #mfile records on module priority
-mfile_compare(#mfile{prio=A}, #mfile{prio=A}) -> true;
-mfile_compare(#mfile{prio=A}, #mfile{prio=B}) when A < B -> true;
-mfile_compare(#mfile{prio=A}, #mfile{prio=B}) when A > B -> false.
+mfile_compare(#mfile{prio = A}, #mfile{prio = A}) -> true;
+mfile_compare(#mfile{prio = A}, #mfile{prio = B}) when A < B -> true;
+mfile_compare(#mfile{prio = A}, #mfile{prio = B}) when A > B -> false.
 
 
 %% @doc Flush all 'module_ready' messages in the message queue.  This is needed when waking up after sleep.
@@ -487,38 +488,38 @@ to_ets(List, Type, Tag, Site) ->
 
 to_ets([], _Type, _Tag, _Site, _Acc) ->
     ok;
-to_ets([#mfile{name=Name, module=Mod, erlang_module=ErlMod, filepath=FP}|T], service, Tag, Site, Acc) ->
+to_ets([#mfile{name = Name, module = Mod, erlang_module = ErlMod, filepath = FP} | T], service, Tag, Site, Acc) ->
     K = #module_index{
-        key=#module_index_key{
-            site=Site,
-            type=service,
-            name=service_key(z_convert:to_binary(Mod), Name)
+        key = #module_index_key{
+            site = Site,
+            type = service,
+            name = service_key(z_convert:to_binary(Mod), Name)
         },
-        module=Mod,
-        erlang_module=ErlMod,
-        filepath=FP,
-        tag=Tag
+        module = Mod,
+        erlang_module = ErlMod,
+        filepath = FP,
+        tag = Tag
     },
     ets:insert(?MODULE_INDEX, K),
-    to_ets(T, service, Tag, Site, [Name|Acc]);
-to_ets([#mfile{name=Name, module=Mod, erlang_module=ErlMod, filepath=FP}|T], Type, Tag, Site, Acc) ->
+    to_ets(T, service, Tag, Site, [Name | Acc]);
+to_ets([#mfile{name = Name, module = Mod, erlang_module = ErlMod, filepath = FP} | T], Type, Tag, Site, Acc) ->
     case lists:member(Name, Acc) of
         true ->
             to_ets(T, Type, Tag, Site, Acc);
         false ->
             K = #module_index{
-                key=#module_index_key{
-                    site=Site,
-                    type=Type,
-                    name=Name
+                key = #module_index_key{
+                    site = Site,
+                    type = Type,
+                    name = Name
                 },
-                module=Mod,
-                erlang_module=ErlMod,
-                filepath=FP,
-                tag=Tag
+                module = Mod,
+                erlang_module = ErlMod,
+                filepath = FP,
+                tag = Tag
             },
             ets:insert(?MODULE_INDEX, K),
-            to_ets(T, Type, Tag, Site, [Name|Acc])
+            to_ets(T, Type, Tag, Site, [Name | Acc])
     end.
 
 service_key(<<"mod_", Mod/binary>>, Name) ->
@@ -528,26 +529,26 @@ service_key(Site, Name) ->
 
 % Place all templates in the ets table, indexed per device type
 templates_to_ets(List, Tag, Site) ->
-    Templates = lists:usort([ Name || #mfile{name=Name} <- List ]),
+    Templates = lists:usort([Name || #mfile{name = Name} <- List]),
     templates_to_ets_1(Templates, List, Tag, Site).
 
 templates_to_ets_1([], _List, _Tag, _Site) ->
     ok;
-templates_to_ets_1([Name|T], List, Tag, Site) ->
+templates_to_ets_1([Name | T], List, Tag, Site) ->
     case lookup_first(Name, List) of
         {error, enoent} ->
             skip;
-        {ok, #mfile{filepath=FP, module=Mod}} ->
+        {ok, #mfile{filepath = FP, module = Mod}} ->
             K = #module_index{
-                key=#module_index_key{
-                    site=Site,
-                    type=template,
-                    name=Name
+                key = #module_index_key{
+                    site = Site,
+                    type = template,
+                    name = Name
                 },
-                module=Mod,
-                erlang_module=undefined,
-                filepath=FP,
-                tag=Tag
+                module = Mod,
+                erlang_module = undefined,
+                filepath = FP,
+                tag = Tag
             },
             ets:insert(?MODULE_INDEX, K)
     end,
@@ -559,13 +560,13 @@ cleanup_ets(Tag, Site) ->
     cleanup_ets_1(ets:first(?MODULE_INDEX), Tag, Site, []).
 
 cleanup_ets_1('$end_of_table', _Tag, _Site, Acc) ->
-    [ ets:delete(?MODULE_INDEX, K) || K <- Acc ];
-cleanup_ets_1(#module_index_key{site=Site} = K, Tag, Site, Acc) ->
+    [ets:delete(?MODULE_INDEX, K) || K <- Acc];
+cleanup_ets_1(#module_index_key{site = Site} = K, Tag, Site, Acc) ->
     case ets:lookup(?MODULE_INDEX, K) of
-        [#module_index{tag=Tag}] ->
+        [#module_index{tag = Tag}] ->
             cleanup_ets_1(ets:next(?MODULE_INDEX, K), Tag, Site, Acc);
         _ ->
-            cleanup_ets_1(ets:next(?MODULE_INDEX, K), Tag, Site, [K|Acc])
+            cleanup_ets_1(ets:next(?MODULE_INDEX, K), Tag, Site, [K | Acc])
     end;
 cleanup_ets_1(K, Tag, Site, Acc) ->
     cleanup_ets_1(ets:next(?MODULE_INDEX, K), Tag, Site, Acc).

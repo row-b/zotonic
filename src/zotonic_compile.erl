@@ -110,7 +110,9 @@ compile_loop([Work|Rest]=WorkQueue, Workers, Result) ->
 
 spawn_compile_workers(Options, Parent) ->
     NoWorkers = min(8, erlang:system_info(schedulers_online)*2),
-    [spawn_link(fun() -> compile_worker_process(Options, Parent) end) || _ <- lists:seq(1, NoWorkers)].
+    [spawn_link(
+        fun() -> compile_worker_process(Options, Parent
+    ) end) || _ <- lists:seq(1, NoWorkers)].
 
 compile_worker_process(Options, Parent) ->
     Parent ! {want_file, self()},
@@ -195,13 +197,15 @@ user_sites_dir() ->
 %% @doc For a list of glob patterns, split all patterns which contain
 %% /*/* up in more patterns, so that we can parallelize it even more.
 unglob(Patterns) ->
-    lists:foldl(fun(Pattern, All) ->
-                        case re:split(Pattern, "/\\*/\\*", [{return, list}, {parts, 2}]) of
-                            [_] -> [Pattern | All];
-                            [Start, End] ->
-                                Dirs = lists:filter(fun filelib:is_dir/1, z_utils:wildcard(Start ++ "/*")),
-                                [Dir ++ "/*" ++ End || Dir <- Dirs] ++ All
-                        end
-                end,
-                [],
-                Patterns).
+    lists:foldl(
+        fun(Pattern, All) ->
+            case re:split(Pattern, "/\\*/\\*", [{return, list}, {parts, 2}]) of
+                [_] -> [Pattern | All];
+                [Start, End] ->
+                    Dirs = lists:filter(fun filelib:is_dir/1, z_utils:wildcard(Start ++ "/*")),
+                    [Dir ++ "/*" ++ End || Dir <- Dirs] ++ All
+            end
+        end,
+        [],
+        Patterns
+    ).

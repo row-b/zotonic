@@ -50,9 +50,9 @@ observe_auth_logoff(#auth_logoff{}, AccContext, _Context) ->
 %% @doc Return the facebook appid, secret and scope
 %% @spec get_config(Context) -> {AppId, Secret, Scope}
 get_config(Context) ->
-    { z_convert:to_list(m_config:get_value(mod_facebook, appid, Context)),
-      z_convert:to_list(m_config:get_value(mod_facebook, appsecret, Context)),
-      z_convert:to_list(m_config:get_value(mod_facebook, scope, ?FACEBOOK_SCOPE, Context))
+    {z_convert:to_list(m_config:get_value(mod_facebook, appid, Context)),
+        z_convert:to_list(m_config:get_value(mod_facebook, appsecret, Context)),
+        z_convert:to_list(m_config:get_value(mod_facebook, scope, ?FACEBOOK_SCOPE, Context))
     }.
 
 
@@ -63,23 +63,29 @@ observe_search_query(_, _Context) ->
     undefined.
 
 
-event(#submit{message=admin_facebook}, Context) ->
+event(#submit{message = admin_facebook}, Context) ->
     case z_acl:is_allowed(use, mod_admin_config, Context) of
         true ->
             save_settings(Context),
             z_render:growl(?__("Saved the Facebook settings.", Context), Context);
         false ->
-            z_render:growl(?__("You don't have permission to change the Facebook settings.", Context), Context)
+            z_render:growl(
+                ?__("You don't have permission to change the Facebook settings.", Context),
+                Context
+            )
     end.
 
 save_settings(Context) ->
-    lists:foreach(fun ({Key, Value}) ->
-                        case is_setting(Key) of
-                            true -> m_config:set_value(mod_facebook, binary_to_atom(Key, 'utf8'), Value, Context);
-                            false -> ok
-                        end
-                  end,
-                  z_context:get_q_all_noz(Context)).
+    lists:foreach(
+        fun({Key, Value}) ->
+            case is_setting(Key) of
+                true ->
+                    m_config:set_value(mod_facebook, binary_to_atom(Key, 'utf8'), Value, Context);
+                false -> ok
+            end
+        end,
+        z_context:get_q_all_noz(Context)
+    ).
 
 is_setting(<<"appid">>) -> true;
 is_setting(<<"appsecret">>) -> true;

@@ -17,6 +17,8 @@
 
 -module(survey_q_multiple_choice).
 
+-behaviour(survey_question).
+
 -export([
     answer/3,
     prep_chart/3,

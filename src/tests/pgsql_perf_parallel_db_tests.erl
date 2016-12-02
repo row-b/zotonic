@@ -21,7 +21,10 @@ test() ->
 
 test(Fun, Name, Sql, Args, Context) ->
     {result, Count} = do_work(Fun, [Sql, Args, Context], ?NUM_WORKERS, ?TESTTIME),
-    lager:info("~p test result: ~p queries in ~p ms, ~p parallel test runners (~s)", [Name, Count, ?TESTTIME, ?NUM_WORKERS, Sql]).
+    lager:info(
+        "~p test result: ~p queries in ~p ms, ~p parallel test runners (~s)",
+        [Name, Count, ?TESTTIME, ?NUM_WORKERS, Sql]
+    ).
 
 test_z_db_q1(Query, Args, Context) ->
     z_db:q1(Query, Args, Context).

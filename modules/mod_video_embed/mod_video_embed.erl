@@ -1,8 +1,8 @@
 %% @author Marc Worrell <marc@worrell.nl>
 %% @copyright 2009-2014 Marc Worrell
-%% @doc Enables embedding video's as media pages.  Handles the embed information for showing video's.
-%% The embed information is stored in the medium table associated with the page. You can not have embed
-%% information and a medium file. Either one or the other.
+%% @doc Enables embedding video's as media pages.  Handles the embed information for showing
+%% videos. %% The embed information is stored in the medium table associated with the page.
+%% You can not have embed %% information and a medium file. Either one or the other.
 
 %% Copyright 2009-2014 Marc Worrell
 %%
@@ -40,7 +40,7 @@
 
 -export([
     test/0
-    ]).
+]).
 
 -include_lib("zotonic.hrl").
 -include_lib("z_stdlib/include/z_url_metadata.hrl").
@@ -51,7 +51,7 @@
 
 %% @doc Check if the update contains video embed information.  If so then update the attached medium item.
 -spec observe_rsc_update(#rsc_update{}, {boolean(), list()}, #context{}) -> {boolean(), list()}.
-observe_rsc_update(#rsc_update{action=insert, id=Id}, {Changed, Props}, Context) ->
+observe_rsc_update(#rsc_update{action = insert, id = Id}, {Changed, Props}, Context) ->
     case proplists:get_value(video_embed_code, Props) of
         undefined ->
             {Changed, Props};
@@ -60,11 +60,11 @@ observe_rsc_update(#rsc_update{action=insert, id=Id}, {Changed, Props}, Context)
         <<>> ->
             {true, proplists:delete(video_embed_code, Props)};
         EmbedCodeRaw ->
-            case z_acl:is_allowed(insert, #acl_media{mime=?EMBED_MIME}, Context) of
+            case z_acl:is_allowed(insert, #acl_media{mime = ?EMBED_MIME}, Context) of
                 true ->
                     EmbedCode = z_sanitize:html(z_html:unescape(EmbedCodeRaw), Context),
                     EmbedService = z_convert:to_binary(
-                                        proplists:get_value(video_embed_service, Props, <<>>)),
+                        proplists:get_value(video_embed_service, Props, <<>>)),
                     {EmbedService1, EmbedId} = fetch_videoid_from_embed(EmbedService, EmbedCode),
                     MediaProps = [
                         {mime, ?EMBED_MIME},
@@ -76,14 +76,14 @@ observe_rsc_update(#rsc_update{action=insert, id=Id}, {Changed, Props}, Context)
                     spawn_preview_create(Id, MediaProps, Context);
                 false ->
                     lager:info("Denied user ~p to embed ~p: ~p",
-                               [z_acl:user(Context), ?EMBED_MIME, EmbedCodeRaw]),
+                        [z_acl:user(Context), ?EMBED_MIME, EmbedCodeRaw]),
                     ok
             end,
             Props1 = proplists:delete(video_embed_code,
-                        proplists:delete(video_embed_service, Props)),
+                proplists:delete(video_embed_service, Props)),
             {true, Props1}
     end;
-observe_rsc_update(#rsc_update{action=update, id=Id}, {Changed, Props}, Context) ->
+observe_rsc_update(#rsc_update{action = update, id = Id}, {Changed, Props}, Context) ->
     case proplists:is_defined(video_embed_code, Props) of
         true ->
             OldMediaProps = m_media:get(Id, Context),
@@ -118,10 +118,18 @@ observe_rsc_update(#rsc_update{action=update, id=Id}, {Changed, Props}, Context)
                             spawn_preview_create(Id, MediaProps, Context),
                             true;
                         _ ->
-                            case        z_utils:are_equal(proplists:get_value(mime, OldMediaProps), ?EMBED_MIME)
-                                andalso z_utils:are_equal(proplists:get_value(video_embed_code, OldMediaProps), EmbedCode)
-                                andalso z_utils:are_equal(proplists:get_value(video_embed_service, OldMediaProps), EmbedService)
-                            of
+                            case z_utils:are_equal(
+                                proplists:get_value(mime, OldMediaProps),
+                                ?EMBED_MIME
+                            )
+                            andalso z_utils:are_equal(
+                                proplists:get_value(video_embed_code, OldMediaProps),
+                                EmbedCode
+                            )
+                            andalso z_utils:are_equal(
+                                proplists:get_value(video_embed_service, OldMediaProps),
+                                EmbedService
+                            ) of
                                 true ->
                                     false;
                                 false ->
@@ -132,7 +140,7 @@ observe_rsc_update(#rsc_update{action=update, id=Id}, {Changed, Props}, Context)
                     end
             end,
             Props1 = proplists:delete(video_embed_code,
-                        proplists:delete(video_embed_service, Props)),
+                proplists:delete(video_embed_service, Props)),
             {Changed or EmbedChanged, Props1};
         false ->
             {Changed, Props}
@@ -141,7 +149,7 @@ observe_rsc_update(#rsc_update{action=update, id=Id}, {Changed, Props}, Context)
 
 %% @doc Return the media viewer for the embedded video (that is, when it is an embedded media).
 %% @spec observe_media_viewer(Notification, Context) -> undefined | {ok, Html}
-observe_media_viewer(#media_viewer{props=Props}, _Context) ->
+observe_media_viewer(#media_viewer{props = Props}, _Context) ->
     case proplists:get_value(mime, Props) of
         ?EMBED_MIME ->
             case proplists:get_value(video_embed_code, Props) of
@@ -155,7 +163,7 @@ observe_media_viewer(#media_viewer{props=Props}, _Context) ->
 
 %% @doc Return the filename of a still image to be used for image tags.
 %% @spec observe_media_stillimage(Notification, _Context) -> undefined | {ok, Filename}
-observe_media_stillimage(#media_stillimage{id=Id, props=Props}, Context) ->
+observe_media_stillimage(#media_stillimage{id = Id, props = Props}, Context) ->
     case proplists:get_value(mime, Props) of
         ?EMBED_MIME ->
             case m_rsc:p(Id, depiction, Context) of
@@ -182,9 +190,9 @@ observe_media_stillimage(#media_stillimage{id=Id, props=Props}, Context) ->
 
 
 %% @doc Recognize youtube and vimeo URLs, generate the correct embed code
-observe_media_import(#media_import{host_rev=[<<"com">>, <<"youtube">> | _], metadata=MD} = MI, Context) ->
+observe_media_import(#media_import{host_rev = [<<"com">>, <<"youtube">> | _], metadata = MD} = MI, Context) ->
     media_import(youtube, ?__("Youtube Video", Context), MD, MI);
-observe_media_import(#media_import{host_rev=[<<"com">>, <<"vimeo">> | _], metadata=MD} = MI, Context) ->
+observe_media_import(#media_import{host_rev = [<<"com">>, <<"vimeo">> | _], metadata = MD} = MI, Context) ->
     media_import(vimeo, ?__("Vimeo Video", Context), MD, MI);
 observe_media_import(#media_import{}, _Context) ->
     undefined.
@@ -223,10 +231,10 @@ fetch_videoid_from_embed(_Service, undefined) ->
     {<<>>, undefined};
 fetch_videoid_from_embed(Service, EmbedCode) ->
     case re:run(EmbedCode,
-                <<"(src|href)=\"([^\"]*)\"">>,
-                [global, notempty, {capture, all, binary}])
+        <<"(src|href)=\"([^\"]*)\"">>,
+        [global, notempty, {capture, all, binary}])
     of
-        {match, [[_,_,Url]|_]} ->
+        {match, [[_, _, Url] | _]} ->
             case url_to_service(Url) of
                 undefined ->
                     {Service, <<>>};
@@ -238,17 +246,17 @@ fetch_videoid_from_embed(Service, EmbedCode) ->
     end.
 
 fetch_videoid(youtube, Url) ->
-    [Url1|_] = binary:split(Url, <<"?">>),
+    [Url1 | _] = binary:split(Url, <<"?">>),
     case binary:split(Url1, <<"/embed/">>) of
         [_, Code] ->
             Code;
         _ ->
-            {_Protocol, _Host, _Path, Qs, _Hash} = mochiweb_util:urlsplit(z_convert:to_list(Url)),
+            {_Protocol, _Host, _Path, Qs, _Hash} = split_url(Url),
             Qs1 = mochiweb_util:parse_qs(Qs),
             z_convert:to_binary(proplists:get_value("v", Qs1))
     end;
 fetch_videoid(vimeo, Url) ->
-    {_Protocol, _Host, Path, _Qs, _Hash} = mochiweb_util:urlsplit(z_convert:to_list(Url)),
+    {_Protocol, _Host, Path, _Qs, _Hash} = split_url(Url) ,
     P1 = lists:last(string:tokens(Path, "/")),
     case z_utils:only_digits(P1) of
         true -> z_convert:to_binary(P1);
@@ -256,6 +264,9 @@ fetch_videoid(vimeo, Url) ->
     end;
 fetch_videoid(_Service, _Url) ->
     <<>>.
+
+split_url(Url) ->
+    mochiweb_util:urlsplit(z_convert:to_list(Url)).
 
 url_to_service(<<"https://", Url/binary>>) -> url_to_service(Url);
 url_to_service(<<"http://", Url/binary>>) -> url_to_service(Url);
@@ -272,22 +283,23 @@ url_to_service(_) -> undefined.
 
 embed_code(youtube, H, W, V) ->
     iolist_to_binary([
-        <<"<iframe width=\"">>,integer_to_list(W),
-        <<"\" height=\"">>,integer_to_list(H),
+        <<"<iframe width=\"">>, integer_to_list(W),
+        <<"\" height=\"">>, integer_to_list(H),
         <<"\" src=\"//www.youtube.com/embed/">>, z_url:url_encode(V),
         <<"\" frameborder=\"0\" allowfullscreen></iframe>">>
-        ]);
+    ]);
 embed_code(vimeo, H, W, V) ->
     iolist_to_binary([
-        <<"<iframe width=\"">>,integer_to_list(W),
-        <<"\" height=\"">>,integer_to_list(H),
+        <<"<iframe width=\"">>, integer_to_list(W),
+        <<"\" height=\"">>, integer_to_list(H),
         <<"\" src=\"//player.vimeo.com/video/">>, z_url:url_encode(V),
         <<"\" frameborder=\"0\" allowfullscreen></iframe>">>
-        ]).
+    ]).
 
-%% @doc Handle the form submit from the "new media" dialog.  The form is defined in templates/_media_upload_panel.tpl.
+%% @doc Handle the form submit from the "new media" dialog.  The form is defined
+%% in templates/_media_upload_panel.tpl.
 %% @spec event(Event, Context1) -> Context2
-event(#submit{message={add_video_embed, EventProps}}, Context) ->
+event(#submit{message = {add_video_embed, EventProps}}, Context) ->
     Actions = proplists:get_value(actions, EventProps, []),
     Id = proplists:get_value(id, EventProps),
     Callback = proplists:get_value(callback, EventProps),
@@ -300,11 +312,12 @@ event(#submit{message={add_video_embed, EventProps}}, Context) ->
         undefined ->
             SubjectId = proplists:get_value(subject_id, EventProps),
             ContentGroupdId = case proplists:get_value(content_group_id, EventProps) of
-                                    undefined -> m_rsc:p_no_acl(SubjectId, content_group_id, Context);
-                                    CGId -> CGId
-                              end,
+                undefined ->
+                    m_rsc:p_no_acl(SubjectId, content_group_id, Context);
+                CGId -> CGId
+            end,
             Predicate = proplists:get_value(predicate, EventProps, depiction),
-            Title   = z_context:get_q_validated(<<"title">>, Context),
+            Title = z_context:get_q_validated(<<"title">>, Context),
             Props = [
                 {title, Title},
                 {is_published, true},
@@ -319,7 +332,7 @@ event(#submit{message={add_video_embed, EventProps}}, Context) ->
                     spawn_preview_create(MediaId, Props, Context),
 
                     {_, ContextLink} = mod_admin:do_link(z_convert:to_integer(SubjectId), Predicate,
-                                                         MediaId, Callback, Context),
+                        MediaId, Callback, Context),
 
                     ContextRedirect = case SubjectId of
                         undefined ->
@@ -370,28 +383,33 @@ event(#submit{message={add_video_embed, EventProps}}, Context) ->
 spawn_preview_create(MediaId, InsertProps, Context) ->
     case z_convert:to_binary(proplists:get_value(video_embed_service, InsertProps)) of
         <<"youtube">> ->
-            spawn(fun() -> preview_youtube(MediaId, InsertProps, z_context:prune_for_async(Context)) end);
+            spawn(fun() ->
+                preview_youtube(MediaId, InsertProps, z_context:prune_for_async(Context)) end);
         <<"vimeo">> ->
-            spawn(fun() -> preview_vimeo(MediaId, InsertProps, z_context:prune_for_async(Context)) end);
+            spawn(fun() ->
+                preview_vimeo(MediaId, InsertProps, z_context:prune_for_async(Context)) end);
         <<"yandex">> ->
-            spawn(fun() -> preview_yandex(MediaId, InsertProps, z_context:prune_for_async(Context)) end);
+            spawn(fun() ->
+                preview_yandex(MediaId, InsertProps, z_context:prune_for_async(Context)) end);
         _ -> nop
     end.
 
-% @doc Fetch the preview image of a youtube video. The preview is located at: http://img.youtube.com/vi/[code]/0.jpg
-% @todo Make this more robust wrt http errors.
+%% @doc Fetch the preview image of a youtube video. The preview is located at:
+%% http://img.youtube.com/vi/[code]/0.jpg
+%% @todo Make this more robust wrt http errors.
 preview_youtube(MediaId, InsertProps, Context) ->
     case z_convert:to_binary(proplists:get_value(video_embed_id, InsertProps)) of
         <<>> ->
             static_preview(MediaId, "images/youtube.jpg", Context);
         EmbedId ->
-            Url = "http://img.youtube.com/vi/"++z_convert:to_list(EmbedId)++"/0.jpg",
+            Url = "http://img.youtube.com/vi/" ++ z_convert:to_list(EmbedId) ++ "/0.jpg",
             m_media:save_preview_url(MediaId, Url, Context)
     end.
 
 
-% @doc Fetch the preview image of a vimeo video. http://stackoverflow.com/questions/1361149/get-img-thumbnails-from-vimeo
-% @todo Make this more robust wrt http errors.
+%% @doc Fetch the preview image of a vimeo video.
+%% http://stackoverflow.com/questions/1361149/get-img-thumbnails-from-vimeo
+%% @todo Make this more robust wrt http errors.
 preview_vimeo(MediaId, InsertProps, Context) ->
     case z_convert:to_binary(proplists:get_value(video_embed_id, InsertProps)) of
         <<>> ->
@@ -425,9 +443,16 @@ preview_yandex(MediaId, InsertProps, Context) ->
         <<>> ->
             static_preview(MediaId, "images/yandex.jpg", Context);
         Embed ->
-            case re:run(Embed, "flv\\.video\\.yandex\\.ru/lite/([^/]+)/([^\"'&/#]+)", [{capture, [1, 2], list}]) of
+            case re:run(
+                Embed,
+                "flv\\.video\\.yandex\\.ru/lite/([^/]+)/([^\"'&/#]+)",
+                [{capture, [1, 2], list}]
+            ) of
                 {match, [User, Code]} ->
-                    Url = lists:flatten(["http://static.video.yandex.ru/get/", User, $/, Code, "/1.m450x334.jpg"]),
+                    Url = lists:flatten([
+                        "http://static.video.yandex.ru/get/", User, $/, Code,
+                        "/1.m450x334.jpg"
+                    ]),
                     m_media:save_preview_url(MediaId, Url, Context);
                 _ ->
                     static_preview(MediaId, "images/yandex.jpg", Context)
@@ -436,7 +461,7 @@ preview_yandex(MediaId, InsertProps, Context) ->
 
 static_preview(MediaId, LibFile, Context) ->
     case z_module_indexer:find(lib, LibFile, Context) of
-        {ok, #module_index{filepath=File}} ->
+        {ok, #module_index{filepath = File}} ->
             Mime = z_media_identify:guess_mime(File),
             {ok, Bin} = file:read_file(File),
             m_media:save_preview(MediaId, Bin, Mime, Context);
@@ -446,5 +471,8 @@ static_preview(MediaId, LibFile, Context) ->
 
 
 test() ->
-    Html = <<"<iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/PSb4ZfKif4Y\" frameborder=\"0\" allowfullscreen></iframe>">>,
+    Html = <<"<iframe width=\"560\" height=\"315\" ",
+        "src=\"https://www.youtube.com/embed/PSb4ZfKif4Y\" frameborder=\"0\" ",
+        "allowfullscreen></iframe>"
+    >>,
     fetch_videoid_from_embed(<<"?">>, Html).

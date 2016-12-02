@@ -44,7 +44,7 @@ event(#submit{message={contact, Args}, form=FormId}, Context) ->
          end,
     From = case proplists:get_value(from, Args, m_config:get_value(?MODULE, from, Context)) of
         undefined -> z_context:get_q_validated(<<"mail">>, Context);
-        From_ -> From_
+        From1 -> From1
     end,
     Vars = [{email_from, From},
             {name, z_context:get_q(<<"name">>, Context)},

@@ -47,19 +47,19 @@ translations({trans, Tr0} = Trans0, Context) ->
 translations(From, Context) when is_binary(From) ->
     case ets:lookup(z_trans_server:table(Context), From) of
         [] ->
-			From;
+            From;
         [{_, Trans}] ->
-			{trans, Trans}
+            {trans, Trans}
     end;
 translations(From, Context) ->
     translations(z_convert:to_binary(From), Context).
 
 merge_trs([], Acc) ->
     lists:reverse(Acc);
-merge_trs([{Lang,_} = LT|Rest], Acc) ->
+merge_trs([{Lang, _} = LT | Rest], Acc) ->
     case proplists:is_defined(Lang, Acc) of
         true -> merge_trs(Rest, Acc);
-        false -> merge_trs(Rest, [LT|Acc])
+        false -> merge_trs(Rest, [LT | Acc])
     end.
 
 %% @doc Prepare a translations table based on all .po files in the active modules.
@@ -67,37 +67,38 @@ parse_translations(Context) ->
     Mods = z_module_indexer:translations(Context),
     build_index(parse_mod_trans(Mods, []), dict:new()).
 
-    %% @doc Parse all .po files. Results in a dict {label, [iso_code,trans]}
-    parse_mod_trans([], Acc) ->
-        lists:reverse(Acc);
-    parse_mod_trans([{_Module, POList}|Rest], Acc) ->
-        Acc1 = parse_trans(POList, Acc),
-        parse_mod_trans(Rest, Acc1).
+%% @doc Parse all .po files. Results in a dict {label, [iso_code,trans]}
+parse_mod_trans([], Acc) ->
+    lists:reverse(Acc);
+parse_mod_trans([{_Module, POList} | Rest], Acc) ->
+    Acc1 = parse_trans(POList, Acc),
+    parse_mod_trans(Rest, Acc1).
 
-    parse_trans([], Acc) ->
-        Acc;
-    parse_trans([{Lang,File}|Rest], Acc) ->
-        parse_trans(Rest, [{Lang, z_gettext:parse_po(File)}|Acc]).
+parse_trans([], Acc) ->
+    Acc;
+parse_trans([{Lang, File} | Rest], Acc) ->
+    parse_trans(Rest, [{Lang, z_gettext:parse_po(File)} | Acc]).
 
-    build_index([], Dict) ->
-        Dict;
-    build_index([{Lang, Labels}|Rest], Dict) ->
-        build_index(Rest, add_labels(Lang, Labels, Dict)).
+build_index([], Dict) ->
+    Dict;
+build_index([{Lang, Labels} | Rest], Dict) ->
+    build_index(Rest, add_labels(Lang, Labels, Dict)).
 
-    add_labels(_Lang, [], Dict) ->
-        Dict;
-    add_labels(Lang, [{header,_}|Rest],Dict) ->
-        add_labels(Lang, Rest,Dict);
-    add_labels(Lang, [{Label,Trans}|Rest], Dict) when is_binary(Trans), is_binary(Label) ->
-        case dict:find(Label, Dict) of
-            {ok, Ts} ->
-                case proplists:get_value(Lang, Ts) of
-                    undefined -> add_labels(Lang, Rest, dict:store(Label, [{Lang,Trans}|Ts], Dict));
-                    _PrevTrans -> add_labels(Lang, Rest, Dict)
-                end;
-            error ->
-                add_labels(Lang, Rest, dict:store(Label,[{Lang,Trans}],Dict))
-        end.
+add_labels(_Lang, [], Dict) ->
+    Dict;
+add_labels(Lang, [{header, _} | Rest], Dict) ->
+    add_labels(Lang, Rest, Dict);
+add_labels(Lang, [{Label, Trans} | Rest], Dict) when is_binary(Trans), is_binary(Label) ->
+    case dict:find(Label, Dict) of
+        {ok, Ts} ->
+            case proplists:get_value(Lang, Ts) of
+                undefined ->
+                    add_labels(Lang, Rest, dict:store(Label, [{Lang, Trans} | Ts], Dict));
+                _PrevTrans -> add_labels(Lang, Rest, Dict)
+            end;
+        error ->
+            add_labels(Lang, Rest, dict:store(Label, [{Lang, Trans}], Dict))
+    end.
 
 %% @doc Strict translation lookup of a language version
 -spec lookup({trans, list()}|binary()|string(), #context{}) -> binary() | string() | undefined.
@@ -147,16 +148,16 @@ lookup_fallback({trans, Tr}, Lang, Context) ->
 lookup_fallback(Text, _Lang, _Context) ->
     Text.
 
-    take_english_or_first(Tr) ->
-        case proplists:get_value(en, Tr) of
-            undefined ->
-                case Tr of
-                    [{_,Text}|_] -> Text;
-                    _ -> undefined
-                end;
-            EnglishText ->
-                EnglishText
-        end.
+take_english_or_first(Tr) ->
+    case proplists:get_value(en, Tr) of
+        undefined ->
+            case Tr of
+                [{_, Text} | _] -> Text;
+                _ -> undefined
+            end;
+        EnglishText ->
+            EnglishText
+    end.
 
 -spec lookup_fallback_language([atom()], #context{}) -> atom().
 lookup_fallback_language(Langs, Context) ->
@@ -176,7 +177,7 @@ lookup_fallback_language(Langs, Lang, Context) ->
                         false ->
                             case Langs of
                                 [] -> Lang;
-                                [L|_] -> L
+                                [L | _] -> L
                             end
                     end;
                 CfgLang ->
@@ -189,7 +190,7 @@ lookup_fallback_language(Langs, Lang, Context) ->
                                 false ->
                                     case Langs of
                                         [] -> Lang;
-                                        [L|_] -> L
+                                        [L | _] -> L
                                     end
                             end;
                         true ->

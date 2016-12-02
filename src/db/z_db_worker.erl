@@ -21,16 +21,18 @@
 -module(z_db_worker).
 
 -callback test_connection(WorkerArgs) -> ok | {error, Reason} when
-      WorkerArgs :: proplists:proplist(),
-      Reason     :: term().
+    WorkerArgs :: proplists:proplist(),
+    Reason :: term().
 
--callback squery(Worker, Sql, Timeout) -> epgsql:ok_reply(epgsql:squery_row()) | {error, epgsql:query_error()} when
-      Worker :: pid(),
-      Sql :: string(),
-      Timeout :: non_neg_integer().
+-callback squery(Worker, Sql, Timeout) ->
+    epgsql:ok_reply(epgsql:squery_row()) | {error, epgsql:query_error()} when
+    Worker :: pid(),
+    Sql :: string(),
+    Timeout :: non_neg_integer().
 
--callback equery(Worker, Sql, Parameters, Timeout) -> epgsql:ok_reply(epgsql:equery_row()) | {error, epgsql:query_error()} when
-      Worker :: pid(),
-      Sql :: string(),
-      Parameters :: [epgsql:bind_param()],
-      Timeout :: non_neg_integer().
+-callback equery(Worker, Sql, Parameters, Timeout) ->
+    epgsql:ok_reply(epgsql:equery_row()) | {error, epgsql:query_error()} when
+    Worker :: pid(),
+    Sql :: string(),
+    Parameters :: [epgsql:bind_param()],
+    Timeout :: non_neg_integer().

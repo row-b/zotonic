@@ -55,7 +55,7 @@
 
 -record(state, {sup}).
 
--define(SITES_START_TIMEOUT,  3600000).  % 1 hour
+-define(SITES_START_TIMEOUT, 3600000).  % 1 hour
 -define(SITES_SUPERVISOR, 'z_sites_manager$supervisor').
 
 -type site_status() :: waiting | running | retrying | failed | stopped.
@@ -76,21 +76,21 @@ upgrade() ->
 
 
 %% @doc Return a list of active site names.
--spec get_sites() -> [ atom() ].
+-spec get_sites() -> [atom()].
 get_sites() ->
     z_supervisor:running_children(?SITES_SUPERVISOR).
 
 %% @doc Return a list of all site names.
--spec get_sites_all() -> [ atom() ].
+-spec get_sites_all() -> [atom()].
 get_sites_all() ->
     lists:flatten(
-        lists:map(fun({_State,Children}) ->
-                    [ Name || {Name,_Spec,_RunState,_Time} <- Children ]
-                  end,
-                  z_supervisor:which_children(?SITES_SUPERVISOR))).
+        lists:map(fun({_State, Children}) ->
+            [Name || {Name, _Spec, _RunState, _Time} <- Children]
+        end,
+            z_supervisor:which_children(?SITES_SUPERVISOR))).
 
 %% @doc Get the status of a particular site
-get_site_status(#context{site=Site}) ->
+get_site_status(#context{site = Site}) ->
     get_site_status(Site);
 get_site_status(Site) when is_atom(Site) ->
     gen_server:call(?MODULE, {site_status, Site}).
@@ -101,7 +101,7 @@ get_sites_status() ->
     gen_server:call(?MODULE, get_sites_status).
 
 %% @doc Return information on all running sites.
--spec info() -> [ {atom(), integer()} ].
+-spec info() -> [{atom(), integer()}].
 info() ->
     gen_server:call(?MODULE, info).
 
@@ -110,31 +110,31 @@ info() ->
 all_sites_running() ->
     all_sites_running(info()).
 
--spec all_sites_running([ {atom(), integer()} ]) -> boolean().
+-spec all_sites_running([{atom(), integer()}]) -> boolean().
 all_sites_running(StateInfo) ->
     all_sites_running(StateInfo, true).
 
 all_sites_running([], true) -> true;
-all_sites_running([{State, Count}| _Rest], true) when Count > 0 andalso State =/= running ->
+all_sites_running([{State, Count} | _Rest], true) when Count > 0 andalso State =/= running ->
     false;
-all_sites_running([_Info|Rest], true) ->
+all_sites_running([_Info | Rest], true) ->
     all_sites_running(Rest, true).
 
 %% @doc Do something for all sites that are currently running.
 foreach(Fun) ->
     lists:foreach(fun(Site) ->
-                    try
-                        Fun(z_context:new(Site))
-                    catch
-                        _:_ -> ok
-                    end
-                  end,
-                  get_sites()).
+        try
+            Fun(z_context:new(Site))
+        catch
+            _:_ -> ok
+        end
+    end,
+        get_sites()).
 
 %% @doc Return a list of contexts initialized for all active sites.
--spec get_site_contexts() -> [ #context{} ].
+-spec get_site_contexts() -> [#context{}].
 get_site_contexts() ->
-    [ z_context:new(Name) || Name <- get_sites() ].
+    [z_context:new(Name) || Name <- get_sites()].
 
 %% @doc Fetch the configuration of a specific site.
 -spec get_site_config(atom()) -> {ok, list()} | {error, term()}.
@@ -149,12 +149,14 @@ get_site_config(Site) ->
 %% @doc Resolve {env, "ENV_NAME"} tuples from site config into the site configuration.
 merge_os_env(SiteConfig) ->
     lists:map(
-      fun({K, {env, Name}}) -> {K, os:getenv(Name)};
-         ({K, {env, Name, Default}}) -> {K, os:getenv(Name, Default)};
-         ({K, {env_int, Name}}) -> {K, z_convert:to_integer(os:getenv(Name))};
-         ({K, {env_int, Name, Default}}) -> {K, z_convert:to_integer(os:getenv(Name, Default))};
-         ({K, V}) -> {K, V}
-      end, SiteConfig).
+        fun({K, {env, Name}}) -> {K, os:getenv(Name)};
+            ({K, {env, Name, Default}}) -> {K, os:getenv(Name, Default)};
+            ({K, {env_int, Name}}) ->
+                {K, z_convert:to_integer(os:getenv(Name))};
+            ({K, {env_int, Name, Default}}) ->
+                {K, z_convert:to_integer(os:getenv(Name, Default))};
+            ({K, V}) -> {K, V}
+        end, SiteConfig).
 
 
 %% @doc Return the name of the site to handle unknown Host requests
@@ -167,7 +169,7 @@ get_fallback_site() ->
     end.
 
 %% @doc The list of builtin sites, they are located in the priv/sites directory.
--spec get_builtin_sites() -> [ atom() ].
+-spec get_builtin_sites() -> [atom()].
 get_builtin_sites() ->
     [zotonic_status, testsandbox, testsandboxdb].
 
@@ -235,7 +237,7 @@ init([]) ->
     ets:new(?MODULE_INDEX, [set, public, named_table, {keypos, #module_index.key}]),
     ets:new(?MEDIACLASS_INDEX, [set, public, named_table, {keypos, #mediaclass_index.key}]),
     add_sites_to_sup(Sup, scan_sites()),
-    {ok, #state{sup=Sup}}.
+    {ok, #state{sup = Sup}}.
 
 
 %% @spec handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -248,12 +250,12 @@ init([]) ->
 handle_call(get_sites_status, _From, State) ->
     Grouped = z_supervisor:which_children(State#state.sup),
     Ungrouped = lists:foldr(fun({Status, Sites}, Acc) ->
-                                    [begin
-                                         [Name|Rest] = tuple_to_list(Site),
-                                         [Name,Status|Rest]
-                                     end || Site <- Sites] ++ Acc end,
-                            [],
-                            Grouped),
+        [begin
+            [Name | Rest] = tuple_to_list(Site),
+            [Name, Status | Rest]
+        end || Site <- Sites] ++ Acc end,
+        [],
+        Grouped),
     {reply, lists:sort(Ungrouped), State};
 
 %% @doc Are all sites running?
@@ -339,7 +341,6 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
-
 %%====================================================================
 %% support functions
 %%====================================================================
@@ -348,14 +349,14 @@ code_change(_OldVsn, State, _Extra) ->
 -spec handle_site_status(atom(), #state{}) -> {ok, site_status()} | {error, notfound}.
 handle_site_status(Site, State) ->
     Grouped = z_supervisor:which_children(State#state.sup),
-    handle_site_status_1(Site, Grouped).
+    handle_site_status1(Site, Grouped).
 
-handle_site_status_1(_Site, []) ->
+handle_site_status1(_Site, []) ->
     {error, notfound};
-handle_site_status_1(Site, [{Status, Sites}|Statuses]) ->
+handle_site_status1(Site, [{Status, Sites} | Statuses]) ->
     case lists:keymember(Site, 1, Sites) of
         true -> {ok, Status};
-        false -> handle_site_status_1(Site, Statuses)
+        false -> handle_site_status1(Site, Statuses)
     end.
 
 %% @doc Get the file path of the config file for a site.
@@ -369,7 +370,7 @@ get_site_config_file(Site) ->
 
 
 %% @doc Scan all sites subdirectories for the site configurations.
--spec scan_sites() -> [ list() ].
+-spec scan_sites() -> [list()].
 scan_sites() ->
     scan_sites(is_testsandbox()).
 
@@ -380,36 +381,36 @@ scan_sites(true) ->
     [SiteConfig || {ok, SiteConfig} <- ParsedConfigs];
 scan_sites(false) ->
     BuiltinSites = get_builtin_sites() -- [testsandbox, testsandboxdb],
-    Builtin = [ parse_config(get_site_config_file(Builtin)) || Builtin <- BuiltinSites ],
-    [ BuiltinCfg || {ok, BuiltinCfg} <- Builtin ] ++ scan_directory(z_path:user_sites_dir()).
+    Builtin = [parse_config(get_site_config_file(Builtin)) || Builtin <- BuiltinSites],
+    [BuiltinCfg || {ok, BuiltinCfg} <- Builtin] ++ scan_directory(z_path:user_sites_dir()).
 
 scan_directory(Directory) ->
     ConfigFiles = z_utils:wildcard(filename:join([Directory, "*", "config"])),
-    ParsedConfigs = [ parse_config(CfgFile) || CfgFile <- ConfigFiles ],
-    [ SiteConfig || {ok, SiteConfig} <- ParsedConfigs ].
+    ParsedConfigs = [parse_config(CfgFile) || CfgFile <- ConfigFiles],
+    [SiteConfig || {ok, SiteConfig} <- ParsedConfigs].
 
 parse_config(CfgFile) ->
     SitePath = filename:dirname(CfgFile),
     Site = z_convert:to_atom(filename:basename(SitePath)),
-    ConfigFiles = [ CfgFile | config_d_files(SitePath) ],
+    ConfigFiles = [CfgFile | config_d_files(SitePath)],
     parse_config(ConfigFiles, [{site, Site}]).
 
 %% @doc Parse configurations from multiple files, merging results. The last file wins.
 parse_config([], SiteConfig) ->
     {ok, SiteConfig};
-parse_config([C|T], SiteConfig) ->
+parse_config([C | T], SiteConfig) ->
     case file:consult(C) of
-        {ok, [NewSiteConfig|_]} when is_list(NewSiteConfig) ->
+        {ok, [NewSiteConfig | _]} when is_list(NewSiteConfig) ->
             SortedNewConfig = lists:ukeysort(1, NewSiteConfig),
             MergedConfig = lists:ukeymerge(1, SortedNewConfig, SiteConfig),
             parse_config(T, MergedConfig);
-        {ok, [NotAList|_]} ->
+        {ok, [NotAList | _]} ->
             lager:error("Expected a list in the site config ~s but got ~p",
-                        [C, NotAList]),
+                [C, NotAList]),
             parse_config(T, SiteConfig);
         {error, Reason} = Error ->
             lager:error("Could not consult site config: ~s: ~s",
-                        [C, unicode:characters_to_binary(file:format_error(Reason))]),
+                [C, unicode:characters_to_binary(file:format_error(Reason))]),
             Error
     end.
 
@@ -417,15 +418,15 @@ parse_config([C|T], SiteConfig) ->
 %% Filter out files starting with '.' or ending with '~'.
 config_d_files(SitePath) ->
     Path = filename:join([SitePath, "config.d", "*"]),
-    lists:sort([ F || F <- z_utils:wildcard(Path),
-                      filelib:is_regular(F),
-                      lists:nth(1, filename:basename(F)) =/= $.,
-                      lists:last(filename:basename(F)) =/= $~ ]).
+    lists:sort([F || F <- z_utils:wildcard(Path),
+        filelib:is_regular(F),
+        lists:nth(1, filename:basename(F)) =/= $.,
+        lists:last(filename:basename(F)) =/= $~]).
 
 
 has_zotonic_site([]) ->
     false;
-has_zotonic_site([SiteProps|Rest]) ->
+has_zotonic_site([SiteProps | Rest]) ->
     case proplists:get_value(site, SiteProps) of
         zotonic_status -> proplists:get_value(enabled, SiteProps, false);
         _ -> has_zotonic_site(Rest)
@@ -434,7 +435,7 @@ has_zotonic_site([SiteProps|Rest]) ->
 %% @todo Make this the 'first' running site, not the first enabled site.
 get_fallback_site([]) ->
     undefined;
-get_fallback_site([SiteProps|Rest]) ->
+get_fallback_site([SiteProps | Rest]) ->
     case proplists:get_value(enabled, SiteProps, false) of
         true ->
             {site, Name} = proplists:lookup(site, SiteProps),
@@ -446,10 +447,10 @@ get_fallback_site([SiteProps|Rest]) ->
 %% @doc Initialisation: add all sites to the sites supervisor, start the enabled sites.
 add_sites_to_sup(_Sup, []) ->
     ok;
-add_sites_to_sup(Sup, [SiteProps|Rest]) ->
+add_sites_to_sup(Sup, [SiteProps | Rest]) ->
     case proplists:lookup(site, SiteProps) of
         {site, Name} ->
-            Spec = #child_spec{name=Name, mfa={z_site_sup, start_link, [Name]}},
+            Spec = #child_spec{name = Name, mfa = {z_site_sup, start_link, [Name]}},
             ok = z_supervisor:add_child(Sup, Spec),
             case proplists:get_value(enabled, SiteProps, false) of
                 true -> z_supervisor:start_child(Sup, Name, infinity);
@@ -470,31 +471,31 @@ handle_upgrade(State) ->
     Kill = sets:subtract(Old, New),
     Add = sets:subtract(New, Old),
 
-    sets:fold(fun (Name, ok) ->
-                z_supervisor:delete_child(State#state.sup, Name),
-                ok
-              end, ok, Kill),
+    sets:fold(fun(Name, ok) ->
+        z_supervisor:delete_child(State#state.sup, Name),
+        ok
+    end, ok, Kill),
 
-    sets:fold(fun (Name, ok) ->
-                CS = #child_spec{name=Name, mfa={z_site_sup, start_link, [Name]}},
-                z_supervisor:add_child(State#state.sup, CS),
-                ok
-              end, ok, Add),
+    sets:fold(fun(Name, ok) ->
+        CS = #child_spec{name = Name, mfa = {z_site_sup, start_link, [Name]}},
+        z_supervisor:add_child(State#state.sup, CS),
+        ok
+    end, ok, Add),
     State.
 
 
 supervised_sites(Sup) ->
-    names(z_supervisor:which_children(Sup), []  ).
+    names(z_supervisor:which_children(Sup), []).
 
-    names([], Acc) ->
-        Acc;
-    names([{_RunState,CS}|Rest], Acc) ->
-        Names = [ Name || {Name, _Child, _Pid, _Time} <- CS ],
-        names(Rest, Acc ++ Names).
+names([], Acc) ->
+    Acc;
+names([{_RunState, CS} | Rest], Acc) ->
+    Names = [Name || {Name, _Child, _Pid, _Time} <- CS],
+    names(Rest, Acc ++ Names).
 
 hosted_sites(SiteProps) ->
-    L = [ proplists:get_value(site, Props) || Props <- SiteProps ],
-    [ Name || Name <- L, Name /= undefined ].
+    L = [proplists:get_value(site, Props) || Props <- SiteProps],
+    [Name || Name <- L, Name /= undefined].
 
 info(Grouped) ->
     info(Grouped, []).
@@ -506,7 +507,7 @@ info([{State, L} | Rest], Info) ->
 
 %% @doc Check if the current beam is running the testsandbox
 is_testsandbox() ->
-    [Base|_] = string:tokens(atom_to_list(node()), "@"),
+    [Base | _] = string:tokens(atom_to_list(node()), "@"),
     case lists:last(string:tokens(Base, "_")) of
         "testsandbox" -> true;
         "testsandboxdb" -> true;
@@ -530,15 +531,15 @@ do_load_module(false, true, Module, State) ->
     Grouped = z_supervisor:which_children(State#state.sup),
     Running = proplists:get_value(running, Grouped, []),
     lists:foreach(fun(SiteChild) ->
-                    try
-                        Site = element(1, SiteChild),
-                        z_module_manager:module_reloaded(Module, z_context:new(Site))
-                    catch
-                        _:_ ->
-                            ok
-                    end
-                  end,
-                  Running);
+        try
+            Site = element(1, SiteChild),
+            z_module_manager:module_reloaded(Module, z_context:new(Site))
+        catch
+            _:_ ->
+                ok
+        end
+    end,
+        Running);
 do_load_module(false, false, _Module, _State) ->
     ok.
 
@@ -547,7 +548,7 @@ is_running_site(Module, State) ->
 
 is_module(Module) ->
     case atom_to_list(Module) of
-        "mod_"++_ -> true;
+        "mod_" ++ _ -> true;
         _ -> false
     end.
 

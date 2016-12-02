@@ -45,24 +45,27 @@ slot(SignalPrototype, Actions, ConnectorContext) ->
 %
 receive_loop(SignalPrototype, Actions, ConnectorContext) ->
     receive
-    {signal, Signal, _EmitterContext} ->
-        render_page_actions(Signal, Actions, ConnectorContext),
-        receive_loop(SignalPrototype, Actions, ConnectorContext);
-    {script, Script} ->
-        z_context:add_script_page(Script, ConnectorContext),
-        receive_loop(SignalPrototype, Actions, ConnectorContext);
-    disconnected ->
-        disconnected;
-    {'EXIT', _From, _Reason} ->
-        mod_signal:disconnect(SignalPrototype, self(), ConnectorContext)
+        {signal, Signal, _EmitterContext} ->
+            render_page_actions(Signal, Actions, ConnectorContext),
+            receive_loop(SignalPrototype, Actions, ConnectorContext);
+        {script, Script} ->
+            z_context:add_script_page(Script, ConnectorContext),
+            receive_loop(SignalPrototype, Actions, ConnectorContext);
+        disconnected ->
+            disconnected;
+        {'EXIT', _From, _Reason} ->
+            mod_signal:disconnect(SignalPrototype, self(), ConnectorContext)
     end.
 
 % @doc Render the actions and send the scripts to the page connected to the signal.
 %
 render_page_actions(Signal, Actions, Context) ->
     {_, SignalProps} = Signal,
-    Actions1 = [ {Name,  [ {signal, Signal}, {signal_props, SignalProps} | Props ] } || {Name, Props} <- Actions],
-    Options  = [{action, X} || X <- Actions1],
+    Actions1 = [
+        {Name, [{signal, Signal}, {signal_props, SignalProps} | Props]}
+        || {Name, Props} <- Actions
+    ],
+    Options = [{action, X} || X <- Actions1],
 
     %% What parameters should be used here?
     Script = z_script:get_script(z_render:wire(undefined, undefined, {event, Options}, Context)),

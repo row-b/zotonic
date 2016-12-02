@@ -47,20 +47,28 @@
 
 
 %% @doc Add a new user or an existing person as user.
-observe_signup(#signup{id=UserId, props=Props, signup_props=SignupProps, request_confirm=RequestConfirm}, Context) ->
+observe_signup(
+    #signup{
+        id = UserId,
+        props = Props,
+        signup_props = SignupProps,
+        request_confirm = RequestConfirm
+    },
+    Context
+) ->
     signup_existing(UserId, Props, SignupProps, RequestConfirm, Context).
 
 
 %% @doc Check if a module wants to redirect to the signup form.  Returns either {ok, Location} or undefined.
-observe_signup_url(#signup_url{props=Props, signup_props=SignupProps}, Context) ->
+observe_signup_url(#signup_url{props = Props, signup_props = SignupProps}, Context) ->
     CheckId = binary_to_list(z_ids:id()),
     z_session:set(signup_xs, {CheckId, Props, SignupProps}, Context),
     {ok, z_dispatcher:url_for(signup, [{xs, CheckId}], Context)}.
 
 
-observe_identity_verification(#identity_verification{user_id=UserId, identity=undefined}, Context) ->
+observe_identity_verification(#identity_verification{user_id = UserId, identity = undefined}, Context) ->
     request_verification(UserId, Context);
-observe_identity_verification(#identity_verification{user_id=UserId, identity=Ident}, Context) ->
+observe_identity_verification(#identity_verification{user_id = UserId, identity = Ident}, Context) ->
     case proplists:get_value(type, Ident) of
         <<"email">> -> send_verify_email(UserId, Ident, Context);
         _ -> false
@@ -68,12 +76,12 @@ observe_identity_verification(#identity_verification{user_id=UserId, identity=Id
 
 
 %% @doc Return the url to redirect to when the user logged on, defaults to the user's personal page.
-observe_logon_ready_page(#logon_ready_page{request_page=[]}, Context) ->
+observe_logon_ready_page(#logon_ready_page{request_page = []}, Context) ->
     case z_auth:is_auth(Context) of
         true -> m_rsc:p(z_acl:user(Context), page_url, Context);
         false -> []
     end;
-observe_logon_ready_page(#logon_ready_page{request_page=Url}, _Context) ->
+observe_logon_ready_page(#logon_ready_page{request_page = Url}, _Context) ->
     Url.
 
 
@@ -83,7 +91,8 @@ signup(Props, SignupProps, RequestConfirm, Context) ->
     signup_existing(undefined, Props, SignupProps, RequestConfirm, Context).
 
 %% @doc Sign up a existing user
--spec signup_existing(integer()|undefined, list(), list(), boolean(), #context{}) -> {ok, integer()} | {error, term()}.
+-spec signup_existing(integer()|undefined, list(), list(), boolean(), #context{}) ->
+    {ok, integer()} | {error, term()}.
 signup_existing(UserId, Props, SignupProps, RequestConfirm, Context) ->
     ContextSudo = z_acl:sudo(Context),
     case check_signup(Props, SignupProps, ContextSudo) of
@@ -95,18 +104,20 @@ signup_existing(UserId, Props, SignupProps, RequestConfirm, Context) ->
 
 %% @doc Sent verification requests to non verified identities
 request_verification(UserId, Context) ->
-    Unverified = [ R || R <- m_identity:get_rsc(UserId, Context), proplists:get_value(is_verified, R) == false ],
+    Unverified = [R
+        || R <- m_identity:get_rsc(UserId, Context), proplists:get_value(is_verified, R) == false
+    ],
     request_verification(UserId, Unverified, false, Context).
 
-    request_verification(_, [], false, _Context) ->
-        {error, no_verifiable_identities};
-    request_verification(_, [], true, _Context) ->
-        ok;
-    request_verification(UserId, [Ident|Rest], Requested, Context) ->
-        case z_notifier:first(#identity_verification{user_id=UserId, identity=Ident}, Context) of
-            ok -> request_verification(UserId, Rest, true, Context);
-            _ -> request_verification(UserId, Rest, Requested, Context)
-        end.
+request_verification(_, [], false, _Context) ->
+    {error, no_verifiable_identities};
+request_verification(_, [], true, _Context) ->
+    ok;
+request_verification(UserId, [Ident | Rest], Requested, Context) ->
+    case z_notifier:first(#identity_verification{user_id = UserId, identity = Ident}, Context) of
+        ok -> request_verification(UserId, Rest, true, Context);
+        _ -> request_verification(UserId, Rest, Requested, Context)
+    end.
 
 %%====================================================================
 %% support functions
@@ -138,30 +149,44 @@ check_props(_Props, _Context) ->
 %% @doc Preflight check on identities, prevent double identity keys.
 check_identity(_UserId, [], _Context) ->
     ok;
-check_identity(UserId, [{identity, {username_pw, {Username, _Password}, true, _Verified}}|Idents], Context) ->
+check_identity(
+    UserId,
+    [{identity, {username_pw, {Username, _Password}, true, _Verified}} | Idents],
+    Context
+) ->
     case username_exists(UserId, Username, Context) of
         false -> check_identity(UserId, Idents, Context);
         true -> {error, {identity_in_use, username}}
     end;
-check_identity(UserId, [{identity, {Type, Key, true, _Verified}}|Idents], Context) ->
+check_identity(UserId, [{identity, {Type, Key, true, _Verified}} | Idents], Context) ->
     case identity_exists(UserId, Type, Key, Context) of
         false -> check_identity(UserId, Idents, Context);
         true -> {error, {identity_in_use, Type}}
     end;
-check_identity(UserId, [_|Idents], Context) ->
+check_identity(UserId, [_ | Idents], Context) ->
     check_identity(UserId, Idents, Context).
 
 
-%% @doc Insert or update a new user, return the user id on success. Assume all args are ok as we did
+%% @doc Insert or update a new user, return the user id on success. Assume all
+%% args are ok as we did
 %% a preflight check and users sign up slowly (ie. no race condition)
 do_signup(UserId, Props, SignupProps, RequestConfirm, Context) ->
     IsVerified = not RequestConfirm orelse has_verified_identity(SignupProps),
     case insert_or_update(UserId, props_to_rsc(Props, IsVerified, Context), Context) of
         {ok, NewUserId} ->
             ensure_identities(NewUserId, SignupProps, Context),
-            z_notifier:map(#signup_done{id=NewUserId, is_verified=IsVerified, props=Props, signup_props=SignupProps}, Context),
+            z_notifier:map(
+                #signup_done{
+                    id = NewUserId,
+                    is_verified = IsVerified,
+                    props = Props,
+                    signup_props = SignupProps
+                },
+                Context
+            ),
             case IsVerified of
-                true -> z_notifier:map(#signup_confirm{id=NewUserId}, Context);
+                true ->
+                    z_notifier:map(#signup_confirm{id = NewUserId}, Context);
                 false -> nop
             end,
             maybe_add_depiction(NewUserId, Props, Context),
@@ -179,11 +204,11 @@ maybe_add_depiction(Id, Props, Context) ->
                     case m_media:insert_url(Url, z_acl:logon(Id, Context)) of
                         {ok, MediaId} ->
                             lager:info("Added depiction from depiction_url for ~p: ~p",
-                                       [Id, Url]),
+                                [Id, Url]),
                             m_edge:insert(Id, depiction, MediaId, Context);
                         {error, _} = Error ->
                             lager:warning("Could not insert depiction_url for ~p: ~p",
-                                          [Id, Url]),
+                                [Id, Url]),
                             Error
                     end;
                 _ ->
@@ -200,25 +225,29 @@ insert_or_update(UserId, Props, Context) when is_integer(UserId) ->
 
 
 has_verified_identity([]) -> false;
-has_verified_identity([{identity, {Type, _, _, true}}|_Is]) when Type /= username_pw -> true;
-has_verified_identity([_|Is]) -> has_verified_identity(Is).
+has_verified_identity([{identity, {Type, _, _, true}} | _Is]) when Type /= username_pw ->
+    true;
+has_verified_identity([_ | Is]) -> has_verified_identity(Is).
 
 
 ensure_identities(Id, SignupProps, Context) ->
-    [ ensure_identity(Id, Ident, Context) || {K,Ident} <- SignupProps, K == identity ].
+    [ensure_identity(Id, Ident, Context) || {K, Ident} <- SignupProps, K == identity].
 
 ensure_identity(Id, {username_pw, {Username, Password}, true, true}, Context) ->
     case m_identity:set_username_pw(Id, Username, Password, Context) of
         ok -> ok;
         Error -> throw(Error)
     end;
-ensure_identity(Id, {Type, Key, IsUnique, IsVerified}, Context) when is_binary(Key); is_list(Key) ->
+ensure_identity(Id, {Type, Key, IsUnique, IsVerified}, Context)
+    when is_binary(Key); is_list(Key) ->
     m_identity:insert(Id, Type, Key, [{is_verified, IsVerified}, {is_unique, IsUnique}], Context).
 
 
 props_to_rsc(Props, IsVerified, Context) ->
     Category = z_convert:to_atom(m_config:get_value(mod_signup, member_category, person, Context)),
-    ContentGroup = z_convert:to_atom(m_config:get_value(mod_signup, content_group, undefined, Context)),
+    ContentGroup = z_convert:to_atom(
+        m_config:get_value(mod_signup, content_group, undefined, Context)
+    ),
     Props1 = [
         {is_published, IsVerified},
         {content_group, ContentGroup},
@@ -239,7 +268,7 @@ props_to_rsc(Props, IsVerified, Context) ->
             ],
             Name1 = lists:filter(fun(S) -> not z_utils:is_empty(S) end, Name),
             Name2 = string:join(Name1, " "),
-            [ {title, Name2} | Props1 ]
+            [{title, Name2} | Props1]
     end.
 
 
@@ -279,20 +308,40 @@ send_verify_email(UserId, Ident, Context) ->
 
 manage_schema(install, _Context) ->
     #datamodel{
-        resources=[
+        resources = [
             {signup_tos, text, [
-                            {is_published, true},
-                            {page_path, "/terms"},
-                            {title, "Terms of Service"},
-                            {summary, <<"These Terms of Service (\"Terms\") govern your access to and use of the services and COMPANY’s web sites (the \"Services\"), and any information, text, graphics, or other materials uploaded, downloaded or appearing on the Services (collectively referred to as \"Content\"). Your access to and use of the Services is conditioned on your acceptance of and compliance with these Terms. By accessing or using the Services you agree to be bound by these Terms.">>},
-                            {body, "<h2>INSERT YOUR TERMS OF SERVICE HERE</h2>"}
-                        ]},
+                {is_published, true},
+                {page_path, "/terms"},
+                {title, "Terms of Service"},
+                {summary, <<"These Terms of Service (\"Terms\") govern your "
+                    "access to and use of the services and COMPANY’s web sites "
+                    "(the \"Services\"), and any information, text, graphics, "
+                    "or other materials uploaded, downloaded or appearing on "
+                    "the Services (collectively referred to as \"Content\"). "
+                    "Your access to and use of the Services is conditioned on "
+                    "your acceptance of and compliance with these Terms. By "
+                    "accessing or using the Services you agree to be bound by "
+                    "these Terms.">>
+                },
+                {body, "<h2>INSERT YOUR TERMS OF SERVICE HERE</h2>"}
+            ]},
             {signup_privacy, text, [
-                            {is_published, true},
-                            {page_path, "/privacy"},
-                            {title, "Privacy Policy"},
-                            {summary, <<"This Privacy Policy describes COMPANY’s policies and procedures on the collection, use and disclosure of your information. COMPANY receives your information through our various web sites, SMS, APIs, services and third-parties (\"Services\"). When using any of our Services you consent to the collection, transfer, manipulation, storage, disclosure and other uses of your information as described in this Privacy Policy. Irrespective of which country that you reside in or create information from, your information may be used by COMPANY in any country where COMPANY operates.">>},
-                            {body, "<h2>INSERT YOUR PRIVACY POLICY HERE</h2>"}
-                        ]}
+                {is_published, true},
+                {page_path, "/privacy"},
+                {title, "Privacy Policy"},
+                {summary, <<"This Privacy Policy describes COMPANY’s policies "
+                    "and procedures on the collection, use and disclosure of "
+                    "your information. COMPANY receives your information "
+                    "through our various web sites, SMS, APIs, services and "
+                    "third-parties (\"Services\"). When using any of our "
+                    "Services you consent to the collection, transfer, "
+                    "manipulation, storage, disclosure and other uses of your "
+                    "information as described in this Privacy Policy. "
+                    "Irrespective of which country that you reside in or "
+                    "create information from, your information may be used by "
+                    "COMPANY in any country where COMPANY operates.">>
+                },
+                {body, "<h2>INSERT YOUR PRIVACY POLICY HERE</h2>"}
+            ]}
         ]
     }.

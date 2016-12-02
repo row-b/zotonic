@@ -44,10 +44,10 @@
 
 -ifdef(debug).
 %%-define(debug(S,A), io:format( S, A)).
--define(debug(S,A), io:format(get(fd), S, A)).
+-define(DEBUG(S, A), io:format(get(fd), S, A)).
 -else.
 %%-define(debug(S,A), io:format(get(fd), S, A)).
--define(debug(S,A), true).
+-define(DEBUG(S, A), true).
 -endif.
 
 -define(EPOT_TABLE, gettext_table).
@@ -59,7 +59,7 @@
 %% Author: Marc Worrell
 %% Date: 2010-05-19
 generate(Filename, Labels) ->
-    {ok,Fd} = file:open(Filename, [write]),
+    {ok, Fd} = file:open(Filename, [write]),
     write_header(Fd),
     write_entries(Fd, Labels),
     ok = file:close(Fd).
@@ -67,12 +67,12 @@ generate(Filename, Labels) ->
 write_entries(Fd, Labels) ->
     LibDir = z_utils:lib_dir(),
     F = fun({Id, Trans, Finfo}) ->
-            io:format(Fd, "~n#: ~s~n", [fmt_fileinfo(Finfo, LibDir)]),
-    		file:write(Fd, "msgid \"\"\n"),
-            write_pretty(unicode:characters_to_binary(Id), Fd),
-    		file:write(Fd, "msgstr \"\"\n"),
-    		write_pretty(unicode:characters_to_binary(Trans), Fd)
-    	end,
+        io:format(Fd, "~n#: ~s~n", [fmt_fileinfo(Finfo, LibDir)]),
+        file:write(Fd, "msgid \"\"\n"),
+        write_pretty(unicode:characters_to_binary(Id), Fd),
+        file:write(Fd, "msgstr \"\"\n"),
+        write_pretty(unicode:characters_to_binary(Trans), Fd)
+        end,
     lists:foreach(F, Labels).
 
 -define(ENDCOL, 72).
@@ -109,37 +109,37 @@ wrap(Parts, Length) ->
     <<Acc/binary, " \"\n\"", Line/binary, "\"\n">>.
 
 fmt_fileinfo(Finfo, LibDir) ->
-    F = fun({Fname0,LineNo}, Acc) ->
+    F = fun({Fname0, LineNo}, Acc) ->
         Fname = z_convert:to_list(Fname0),
         Fname1 = case lists:prefix(LibDir, Fname) of
-                    true -> [$.|lists:nthtail(length(LibDir), Fname)];
-                    false -> Fname
+                     true -> [$. | lists:nthtail(length(LibDir), Fname)];
+                     false -> Fname
                  end,
         iolist_to_binary([Fname1, ":", z_convert:to_binary(LineNo), Acc])
-	end,
-    lists:foldr(F,<<>>,Finfo).
+        end,
+    lists:foldr(F, <<>>, Finfo).
 
 write_header(Fd) ->
     file:write(Fd,
-	      "# SOME DESCRIPTIVE TITLE.\n"
-	      "# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER\n"
-	      "# This file is distributed under the same license as the PACKAGE package.\n"
-	      "# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.\n"
-	      "#\n"
-	      "# NB: Consider using poEdit <http://poedit.sourceforge.net>\n"
-	      "#\n"
-	      "#\n"
-	      "#, fuzzy\n"
-	      "msgid \"\"\n"
-	      "msgstr \"\"\n"
-	      "\"Project-Id-Version: PACKAGE VERSION\\n\"\n"
-	      "\"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
-	      "\"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
-	      "\"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n\"\n"
-	      "\"Language-Team: LANGUAGE <LL@li.org>\\n\"\n"
-	      "\"MIME-Version: 1.0\\n\"\n"
-	      "\"Content-Type: text/plain; charset=utf-8\\n\"\n"
-	      "\"Content-Transfer-Encoding: 8bit\\n\"\n").
+        "# SOME DESCRIPTIVE TITLE.\n"
+        "# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER\n"
+        "# This file is distributed under the same license as the PACKAGE package.\n"
+        "# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.\n"
+        "#\n"
+        "# NB: Consider using poEdit <http://poedit.sourceforge.net>\n"
+        "#\n"
+        "#\n"
+        "#, fuzzy\n"
+        "msgid \"\"\n"
+        "msgstr \"\"\n"
+        "\"Project-Id-Version: PACKAGE VERSION\\n\"\n"
+        "\"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
+        "\"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
+        "\"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n\"\n"
+        "\"Language-Team: LANGUAGE <LL@li.org>\\n\"\n"
+        "\"MIME-Version: 1.0\\n\"\n"
+        "\"Content-Type: text/plain; charset=utf-8\\n\"\n"
+        "\"Content-Transfer-Encoding: 8bit\\n\"\n").
 
 
 %print_date() ->
@@ -159,100 +159,100 @@ write_header(Fd) ->
 %%%      removed before the first erlang/yaws file is processed.
 %%%      (entrys are appended to the file)
 %%% --------------------------------------------------------------------
-parse_transform(Form,Opts) ->
+parse_transform(Form, Opts) ->
     case lists:member(gettext, Opts) of
-	true ->
-	    {_Gettext_App_Name, _GtxtDir, _} = get_env(),
-	    %open_epot_file(Gettext_App_Name, GtxtDir),
-	    ?debug( "--- Opts --- ~p~n",[Opts]),
-	    ?debug("--- Env --- isd_type=~p , gettext_dir=~p~n", [Gettext_App_Name,GtxtDir]),
-	    pt(Form, Opts),
-	    %close_file(),
-	    Form;
-	_ ->
-	    Form
+        true ->
+            {GettextAppName, GtxtDir, _} = get_env(),
+            %open_epot_file(Gettext_App_Name, GtxtDir),
+            ?DEBUG("--- Opts --- ~p~n", [Opts]),
+            ?DEBUG("--- Env --- isd_type=~p , gettext_dir=~p~n", [GettextAppName, GtxtDir]),
+            pt(Form, Opts),
+            %close_file(),
+            Form;
+        _ ->
+            Form
     end.
 
 get_env() ->
     {os:getenv("gettext_tmp_name"),
-     os:getenv("gettext_dir"),
-     os:getenv("gettext_def_lang")}.
+        os:getenv("gettext_dir"),
+        os:getenv("gettext_def_lang")}.
 
 
 pt(Form, Opts) ->
     put(fname, ""),
     pt(Form, Opts, undefined).
 
-pt([H|T],Opts,Func) when is_list(H) ->
-    ?debug( "--- 1 --- ~p~n",[H]),
-    F = fun (X) -> pt(X,Opts,Func) end,
-    [lists:map(F,H)|pt(T,Opts,Func)];
+pt([H | T], Opts, Func) when is_list(H) ->
+    ?DEBUG("--- 1 --- ~p~n", [H]),
+    F = fun(X) -> pt(X, Opts, Func) end,
+    [lists:map(F, H) | pt(T, Opts, Func)];
 %%%
-pt({call,L1,{remote,L2,{atom,L3,gettext},{atom,L4,key2str}},
-    [{string,L5,String}]}, _Opts, _Func) ->
-    ?debug( "++++++ String=<~p>~n",[String]),
+pt({call, L1, {remote, L2, {atom, L3, gettext}, {atom, L4, key2str}},
+    [{string, L5, String}]}, _Opts, _Func) ->
+    ?DEBUG("++++++ String=<~p>~n", [String]),
     dump(String, L5),
-    {call,L1,
-     {remote,L2,
-      {atom,L3,gettext},
-      {atom,L4,key2str}},
-     [{string,L5,String}]};
+    {call, L1,
+        {remote, L2,
+            {atom, L3, gettext},
+            {atom, L4, key2str}},
+        [{string, L5, String}]};
 %%%
-pt([{call,_,{remote,_,{atom,_,gettext},{atom,_,key2str}},
-    [{string,L5,String}]} = H | T], Opts, Func) ->
-    ?debug( "++++++ String=<~p>~n",[String]),
+pt([{call, _, {remote, _, {atom, _, gettext}, {atom, _, key2str}},
+    [{string, L5, String}]} = H | T], Opts, Func) ->
+    ?DEBUG("++++++ String=<~p>~n", [String]),
     dump(String, L5),
     [H | pt(T, Opts, Func)];
 %%%
-pt([{attribute,_L,module,Mod} = H | T], Opts, Func) ->
+pt([{attribute, _L, module, Mod} = H | T], Opts, Func) ->
     put(fname, <<(z_convert:to_binary(Mod)), ".erl">>),
-    ?debug( "++++++ Filename 1 =<~p>~n",[get(fname)]),
+    ?DEBUG("++++++ Filename 1 =<~p>~n", [get(fname)]),
     [H | pt(T, Opts, Func)];
 %%%
-pt([{attribute,_L,yawsfile,Fname} = H | T], Opts, Func) ->
+pt([{attribute, _L, yawsfile, Fname} = H | T], Opts, Func) ->
     put(fname, z_convert:to_binary(Fname)),
-    ?debug( "++++++ Filename 2 =<~p>~n",[get(fname)]),
+    ?DEBUG("++++++ Filename 2 =<~p>~n", [get(fname)]),
     [H | pt(T, Opts, Func)];
 %%%
-pt([{block,N,B}|T], Opts, Func) ->
-    ?debug( "--- 2 --- ~p~n",[block]),
-    Block = {block,N,pt(B,Opts,Func)},
-    [Block|pt(T, Opts, Func)];
+pt([{block, N, B} | T], Opts, Func) ->
+    ?DEBUG("--- 2 --- ~p~n", [block]),
+    Block = {block, N, pt(B, Opts, Func)},
+    [Block | pt(T, Opts, Func)];
 %%%
-pt([H|T], Opts, Func) when is_tuple(H) ->
-    ?debug( "--- 3 --- ~p~n",[H]),
+pt([H | T], Opts, Func) when is_tuple(H) ->
+    ?DEBUG("--- 3 --- ~p~n", [H]),
     [while(size(H), H, Opts, Func) | pt(T, Opts, Func)];
 %%%
-pt([H|T], Opts, Func) ->
-    ?debug( "--- 4 --- ~p~n",[H]),
+pt([H | T], Opts, Func) ->
+    ?DEBUG("--- 4 --- ~p~n", [H]),
     [H | pt(T, Opts, Func)];
 %%%
 pt(T, Opts, Func) when is_tuple(T) ->
-    ?debug( "--- 5 --- ~p~n",[T]),
+    ?DEBUG("--- 5 --- ~p~n", [T]),
     while(size(T), T, Opts, Func);
 %%%
 pt(X, _, _) ->
-    ?debug( "--- 6 --- ~p~n",[X]),
+    ?DEBUG("--- 6 --- ~p~n", [X]),
     X.
 
-while(_,{block,N,B},Opts,Func) ->
-    {block,N,pt(B,Opts,Func)};
-while(N,T,Opts,Func) when N>0 ->
-    NT = setelement(N,T,pt(element(N,T),Opts,Func)),
-    while(N-1,NT,Opts,Func);
-while(0,T,_,_) ->
+while(_, {block, N, B}, Opts, Func) ->
+    {block, N, pt(B, Opts, Func)};
+while(N, T, Opts, Func) when N > 0 ->
+    NT = setelement(N, T, pt(element(N, T), Opts, Func)),
+    while(N - 1, NT, Opts, Func);
+while(0, T, _, _) ->
     T.
 
 
-dump(Str,L) ->
+dump(Str, L) ->
     Fname = get(fname),
     Finfo = get_file_info(Str),
-    dets:insert(?EPOT_TABLE, {escape_chars(Str), [{Fname,L}|Finfo]}).
+    dets:insert(?EPOT_TABLE, {escape_chars(Str), [{Fname, L} | Finfo]}).
 
 get_file_info(Key) ->
     case dets:lookup(?EPOT_TABLE, Key) of
-	[]            -> [];
-	[{_,Finfo}|_] -> Finfo
+        [] -> [];
+        [{_, Finfo} | _] -> Finfo
     end.
 
 escape_chars(Binary) ->

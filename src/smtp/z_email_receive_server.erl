@@ -30,8 +30,8 @@
 -export([start_link/0]).
 
 -export([init/4, handle_HELO/2, handle_EHLO/3, handle_MAIL/2, handle_MAIL_extension/2,
-         handle_RCPT/2, handle_RCPT_extension/2, handle_DATA/4, handle_RSET/1, handle_VRFY/2,
-         handle_other/3, code_change/3, terminate/2]).
+    handle_RCPT/2, handle_RCPT_extension/2, handle_DATA/4, handle_RSET/1, handle_VRFY/2,
+    handle_other/3, code_change/3, terminate/2]).
 
 -record(state, {
     options = [] :: list(),
@@ -47,30 +47,35 @@
 start_link() ->
     %% Collect the configuration args of the bounce server
     Args1 = case get_listen_domain() of
-        undefined -> [];
-        ListenDomain -> [{domain, ListenDomain}]
-    end,
+                undefined -> [];
+                ListenDomain -> [{domain, ListenDomain}]
+            end,
     Args2 = case get_listen_ip() of
-        undefined -> [];
-        any -> [{address, {0,0,0,0}} | Args1];
-        ListenIp ->
-            {ok, Address} = inet:getaddr(ListenIp, inet),
-            [{address, Address} | Args1]
-    end,
+                undefined -> [];
+                any -> [{address, {0, 0, 0, 0}} | Args1];
+                ListenIp ->
+                    {ok, Address} = inet:getaddr(ListenIp, inet),
+                    [{address, Address} | Args1]
+            end,
     Args3 = case get_listen_port() of
-        undefined -> Args2;
-        ListenPort -> [{port, ListenPort} | Args2]
-    end,
+                undefined -> Args2;
+                ListenPort -> [{port, ListenPort} | Args2]
+            end,
     start_link([Args3]).
 
 start_link(Args) when is_list(Args) ->
     gen_smtp_server:start_link({local, ?MODULE}, ?MODULE, Args).
 
--spec init(Hostname :: binary(), SessionCount :: non_neg_integer(), PeerName :: tuple(), Options :: list()) -> {'ok', string(), #state{}} | {'stop', any(), string()}.
+-spec init(
+    Hostname :: binary(),
+    SessionCount :: non_neg_integer(),
+    PeerName :: tuple(),
+    Options :: list())
+        -> {'ok', string(), #state{}} | {'stop', any(), string()}.
 init(Hostname, SessionCount, PeerName, Options) ->
     case SessionCount > 20 of
         false ->
-            State = #state{options = Options, peer=PeerName, hostname=Hostname},
+            State = #state{options = Options, peer = PeerName, hostname = Hostname},
             Banner = io_lib:format("~s ESMTP Zotonic ~s", [State#state.hostname, ?ZOTONIC_VERSION]),
             {ok, Banner, State};
         true ->
@@ -78,25 +83,28 @@ init(Hostname, SessionCount, PeerName, Options) ->
             {stop, normal, io_lib:format("421 ~s is too busy to accept mail right now", [Hostname])}
     end.
 
--spec handle_HELO(Hostname :: binary(), State :: #state{}) -> {'error', string(), #state{}} | {'ok', pos_integer(), #state{}} | {'ok', #state{}}.
+-spec handle_HELO(Hostname :: binary(), State :: #state{}) ->
+    {'error', string(), #state{}} | {'ok', pos_integer(), #state{}} | {'ok', #state{}}.
 handle_HELO(Hostname, State) ->
-    {ok, 655360, State#state{helo=Hostname}}. % 640kb of HELO should be enough for anyone.
-    % If {ok, State} was returned here, we'd use the default 10mb limit
+    {ok, 655360, State#state{helo = Hostname}}. % 640kb of HELO should be enough for anyone.
+% If {ok, State} was returned here, we'd use the default 10mb limit
 
--spec handle_EHLO(Hostname :: binary(), Extensions :: list(), State :: #state{}) -> {'error', string(), #state{}} | {'ok', list(), #state{}}.
+-spec handle_EHLO(Hostname :: binary(), Extensions :: list(), State :: #state{}) ->
+    {'error', string(), #state{}} | {'ok', list(), #state{}}.
 handle_EHLO(Hostname, Extensions, State) ->
     MyExtensions = case proplists:get_value(auth, State#state.options, false) of
-                       true ->
-                           % auth is enabled, so advertise it
-                           Extensions ++ [{"AUTH", "PLAIN LOGIN CRAM-MD5"}, {"STARTTLS", true}];
-                       false ->
-                           Extensions
-                   end,
-    {ok, MyExtensions, State#state{helo=Hostname}}.
+       true ->
+           % auth is enabled, so advertise it
+           Extensions ++ [{"AUTH", "PLAIN LOGIN CRAM-MD5"}, {"STARTTLS", true}];
+       false ->
+           Extensions
+    end,
+    {ok, MyExtensions, State#state{helo = Hostname}}.
 
--spec handle_MAIL(From :: binary(), State :: #state{}) -> {'ok', #state{}} | {'error', string(), #state{}}.
+-spec handle_MAIL(From :: binary(), State :: #state{}) ->
+    {'ok', #state{}} | {'error', string(), #state{}}.
 handle_MAIL(From, State) ->
-    check_dnsbl(State#state{from=From}).
+    check_dnsbl(State#state{from = From}).
 
 check_dnsbl(State) ->
     DNSBL = z_config:get(smtp_dnsbl, z_email_dnsbl:dnsbl_list()),
@@ -105,22 +113,27 @@ check_dnsbl(State) ->
             {ok, State};
         {ok, {blocked, Service}} ->
             lager:info("SMTP DNSBL check for ~s blocked by ~p -- closing connection with a 451",
-                       [inet:ntoa(State#state.peer), Service]),
-            Error = io_lib:format("451 ~s has recently sent spam. If you are not a spammer, please try later. Listed at ~s",
-                                 [inet:ntoa(State#state.peer), Service]),
+                [inet:ntoa(State#state.peer), Service]),
+            Error = io_lib:format(
+                "451 ~s has recently sent spam. If you are not a spammer, "
+                "please try later. Listed at ~s",
+                [inet:ntoa(State#state.peer), Service]
+            ),
             {error, Error, State};
         {error, _} = Error ->
             lager:warning("SMTP DNSBL check for ~p returns ~p -- accepting connection",
-                          [State#state.peer, Error]),
+                [State#state.peer, Error]),
             {ok, State}
     end.
 
 
--spec handle_MAIL_extension(Extension :: binary(), State :: #state{}) -> {'ok', #state{}} | 'error'.
+-spec handle_MAIL_extension(Extension :: binary(), State :: #state{}) ->
+    {'ok', #state{}} | 'error'.
 handle_MAIL_extension(_Extension, State) ->
     {ok, State}.
 
--spec handle_RCPT(To :: binary(), State :: #state{}) -> {'ok', #state{}} | {'error', string(), #state{}}.
+-spec handle_RCPT(To :: binary(), State :: #state{}) ->
+    {'ok', #state{}} | {'error', string(), #state{}}.
 handle_RCPT(_To, State) ->
     % Check if the "To" address exists
     % Check domain, check addressee in domain.
@@ -129,11 +142,13 @@ handle_RCPT(_To, State) ->
     % - Return-Path header should be present and contains <>
     {ok, State}.
 
--spec handle_RCPT_extension(Extension :: binary(), State :: #state{}) -> {'ok', #state{}} | 'error'.
+-spec handle_RCPT_extension(Extension :: binary(), State :: #state{}) ->
+    {'ok', #state{}} | 'error'.
 handle_RCPT_extension(_Extension, State) ->
     {ok, State}.
 
--spec handle_DATA(From :: binary(), To :: [binary(),...], Data :: binary(), State :: #state{}) -> {'ok', string(), #state{}} | {'error', string(), #state{}}.
+-spec handle_DATA(From :: binary(), To :: [binary(), ...], Data :: binary(), State :: #state{}) ->
+    {'ok', string(), #state{}} | {'error', string(), #state{}}.
 handle_DATA(From, To, Data, State) ->
     MsgId = z_ids:id(32),
     DataRcvd = add_received_header(Data, MsgId, State),
@@ -144,7 +159,8 @@ handle_RSET(State) ->
     % reset any relevant internal state
     reset_state(State).
 
--spec handle_VRFY(Address :: binary(), State :: #state{}) -> {'ok', string(), #state{}} | {'error', string(), #state{}}.
+-spec handle_VRFY(Address :: binary(), State :: #state{}) ->
+    {'ok', string(), #state{}} | {'error', string(), #state{}}.
 handle_VRFY(_Address, State) ->
     {error, "252 VRFY disabled by policy, just send some mail", State}.
 
@@ -167,7 +183,7 @@ terminate(Reason, State) ->
 %%% ------------------------------------------------------------------------------------------
 
 reset_state(State) ->
-    State#state{helo=undefined, rcpt=undefined, from=undefined}.
+    State#state{helo = undefined, rcpt = undefined, from = undefined}.
 
 decode_and_receive(MsgId, From, To, DataRcvd, State) ->
     case decode(DataRcvd) of
@@ -178,7 +194,8 @@ decode_and_receive(MsgId, From, To, DataRcvd, State) ->
                     % Only report fatal bounces, silently ignore delivery warnings
                     case z_email_receive_check:is_nonfatal_bounce({Type, Subtype}, Headers, Body) of
                         true -> nop;
-                        false -> z_email_server:bounced(State#state.peer, MessageId)
+                        false ->
+                            z_email_server:bounced(State#state.peer, MessageId)
                     end,
                     {ok, MsgId, reset_state(State)};
                 bounce ->
@@ -189,7 +206,7 @@ decode_and_receive(MsgId, From, To, DataRcvd, State) ->
                     {ok, MsgId, reset_state(State)};
                 no_bounce ->
                     receive_data(z_email_spam:spam_check(DataRcvd),
-                                 Decoded, MsgId, From, To, DataRcvd, State)
+                        Decoded, MsgId, From, To, DataRcvd, State)
             end;
         {error, Reason} ->
             lager:error("SMTP receive: Message decode FAILED with ~p", [Reason]),
@@ -198,13 +215,13 @@ decode_and_receive(MsgId, From, To, DataRcvd, State) ->
 
 receive_data({ok, {ham, SpamStatus, _SpamHeaders}}, {Type, Subtype, Headers, Params, Body}, MsgId, From, To, DataRcvd, State) ->
     lager:debug("Handling email from ~s to ~p (id ~s) (peer ~s) [~p]",
-                [From, To, MsgId, inet_parse:ntoa(State#state.peer), SpamStatus]),
+        [From, To, MsgId, inet_parse:ntoa(State#state.peer), SpamStatus]),
     Received = z_email_receive:received(To, From, State#state.peer, MsgId,
-                                        {Type, Subtype}, Headers, Params, Body, DataRcvd),
+        {Type, Subtype}, Headers, Params, Body, DataRcvd),
     reply_handled_status(Received, MsgId, reset_state(State));
 receive_data({ok, {spam, SpamStatus, _SpamHeaders}}, _Decoded, MsgId, From, To, _DataRcvd, State) ->
     lager:info("Refusing spam from ~s to ~p (id ~s) (peer ~s) [~p]",
-               [From, To, MsgId, inet_parse:ntoa(State#state.peer), SpamStatus]),
+        [From, To, MsgId, inet_parse:ntoa(State#state.peer), SpamStatus]),
     {error, z_email_spam:smtp_status(SpamStatus, From, To, State#state.peer), reset_state(State)};
 receive_data({error, Reason}, Decoded, MsgId, From, To, DataRcvd, State) ->
     lager:debug("SMTP receive: passing erronous spam check (~p) as ham for msg-id ~p", [Reason, MsgId]),
@@ -212,8 +229,8 @@ receive_data({error, Reason}, Decoded, MsgId, From, To, DataRcvd, State) ->
 
 
 reply_handled_status(Received, MsgId, State) ->
-    KnownHosts = [ X || X <- Received, X =/= {error, unknown_host} ],
-    Handled    = [ X || X <- KnownHosts, X =/= undefined ],
+    KnownHosts = [X || X <- Received, X =/= {error, unknown_host}],
+    Handled = [X || X <- KnownHosts, X =/= undefined],
     case {KnownHosts, Handled} of
         {[], _} ->
             {error, "551 User not local. Relay denied.", State};
@@ -248,7 +265,7 @@ find_bounce_id(Type, Recipients, Headers) ->
 % Check if one of the recipients is a bounce address
 find_bounce_email([]) ->
     undefined;
-find_bounce_email([To|Other]) ->
+find_bounce_email([To | Other]) ->
     case z_email_server:is_bounce_email_address(To) of
         true -> {ok, To};
         false -> find_bounce_email(Other)
@@ -264,8 +281,9 @@ get_listen_domain() ->
 get_listen_ip() ->
     case os:getenv("ZOTONIC_SMTP_LISTEN_IP") of
         false -> z_config:get(smtp_listen_ip);
-        SmtpListenAny when SmtpListenAny == []; SmtpListenAny == "*"; SmtpListenAny == "any" -> any;
-        SmtpListenIp_-> SmtpListenIp_
+        SmtpListenAny when SmtpListenAny == []; SmtpListenAny == "*"; SmtpListenAny == "any" ->
+            any;
+        SmtpListenIp_ -> SmtpListenIp_
     end.
 
 get_listen_port() ->
@@ -280,7 +298,7 @@ decode(Data) ->
         {ok, mimemail:decode(Data)}
     catch
         Type:Reason ->
-            {error, {Type,Reason}}
+            {error, {Type, Reason}}
     end.
 
 %% TODO: Add 'for user@example.com' header (depends on recipient, we might have multiple)
@@ -299,14 +317,14 @@ add_received_header(Data, MsgId, State) ->
 
 filter_string(S) ->
     lists:filter(fun(C) ->
-                            C >= 32
-                    andalso C =< 126
-                    andalso C =/= $[
-                    andalso C =/= $]
-                    andalso C =/= $(
-                    andalso C =/= $)
-                    andalso C =/= $<
-                    andalso C =/= $>
-                    andalso C =/= $\\
+        C >= 32
+            andalso C =< 126
+            andalso C =/= $[
+            andalso C =/= $]
+            andalso C =/= $(
+            andalso C =/= $)
+            andalso C =/= $<
+            andalso C =/= $>
+            andalso C =/= $\\
                  end,
-                 z_convert:to_list(S)).
+        z_convert:to_list(S)).

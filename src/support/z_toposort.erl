@@ -24,13 +24,13 @@
 
 
 %% @doc Return the topological sort of a list.
--type topoitems() :: {Name::term(), Depends::list(), Provides::list()}.
+-type topoitems() :: {Name :: term(), Depends :: list(), Provides :: list()}.
 -spec sort(topoitems()) -> {ok, list()} | {error, {cyclic, list()}}.
 sort([]) ->
     {ok, []};
 sort(L) ->
     G = digraph:new(),
-    Vs = [ {N, digraph:add_vertex(G)} || {N, _, _} <- L ],
+    Vs = [{N, digraph:add_vertex(G)} || {N, _, _} <- L],
     add_node(G, L, L, Vs).
 
 
@@ -43,19 +43,19 @@ add_node(G, _Nodes, [], Vs) ->
         false ->
             Cycles = digraph_utils:cyclic_strong_components(G),
             digraph:delete(G),
-            {error, {cyclic, [ vertices_to_nodes(Components, Vs) || Components <- Cycles ]}}
+            {error, {cyclic, [vertices_to_nodes(Components, Vs) || Components <- Cycles]}}
     end;
-add_node(G, Nodes, [{_N, [], _Provides}|L], Vs) ->
+add_node(G, Nodes, [{_N, [], _Provides} | L], Vs) ->
     add_node(G, Nodes, L, Vs);
-add_node(G, Nodes, [{Node, Depends, _Provides}|L], Vs) ->
+add_node(G, Nodes, [{Node, Depends, _Provides} | L], Vs) ->
     {Node, NVx} = proplists:lookup(Node, Vs),
-    DepNodes = lists:flatten([ find_node(Nodes, [], Depend) || Depend <- Depends ]),
+    DepNodes = lists:flatten([find_node(Nodes, [], Depend) || Depend <- Depends]),
     [
-      begin
-          {N, Vx} = proplists:lookup(N, Vs),
-          digraph:add_edge(G, Vx, NVx)
-      end
-      || N <- DepNodes
+        begin
+            {N, Vx} = proplists:lookup(N, Vs),
+            digraph:add_edge(G, Vx, NVx)
+        end
+        || N <- DepNodes
     ],
     add_node(G, Nodes, L, Vs).
 
@@ -63,9 +63,9 @@ add_node(G, Nodes, [{Node, Depends, _Provides}|L], Vs) ->
 %     throw({error, {missing_provide, D}});
 find_node([], Fs, _D) ->
     Fs;
-find_node([{N, _, Provides}|L], Fs, D) ->
+find_node([{N, _, Provides} | L], Fs, D) ->
     case lists:member(D, Provides) of
-        true -> find_node(L, [N|Fs], D);
+        true -> find_node(L, [N | Fs], D);
         false -> find_node(L, Fs, D)
     end.
 
@@ -73,7 +73,7 @@ find_node([{N, _, Provides}|L], Fs, D) ->
 vertices_to_nodes(Vertices, Nodes) ->
     [
         begin
-            {value, {N,_}} = lists:keysearch(V, 2, Nodes),
+            {value, {N, _}} = lists:keysearch(V, 2, Nodes),
             N
         end
         || V <- Vertices

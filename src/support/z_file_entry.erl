@@ -38,7 +38,7 @@
     stop/2,
     force_stale/1,
     force_stale/2
-    ]).
+]).
 
 %% gen_fsm exports
 -export([
@@ -49,7 +49,7 @@
     handle_info/3,
     code_change/4,
     terminate/3
-    ]).
+]).
 
 %% FSM states
 -export([
@@ -57,32 +57,32 @@
     content_encoding_gzip/2,
     serving/2,
     stopping/2
-    ]).
+]).
 
 -record(state, {
-        site,                   % site associated with this file
-        request_path,           % request path of this file (binary)
-        root,                   % Optional root where to find the files
-        image_filters,          % Optional filters to apply to the found file
-        is_found,               % false if request path does not exist
-        acls = [],              % Associated resource ids for acl check
-        mime,                   % content-type
-        modified,               % modification time in localtime
-        modifiedUTC,            % modification time in UTC
-        last_stale_check,       % last time the stale check was run
-        parts = [],             % one request can consist of multiple parts from multiple sources
-        size = 0,               % total size of all parts
-        gzip_part,              % gzip is always a single part (in memory or in cache)
-        gzip_size,              % size of gzip encoded data
-        gzipper,                % ref to identify gzip process
-        waiting = [],           % List of waiting processes
-        index_ref
-    }).
+    site,                   % site associated with this file
+    request_path,           % request path of this file (binary)
+    root,                   % Optional root where to find the files
+    image_filters,          % Optional filters to apply to the found file
+    is_found,               % false if request path does not exist
+    acls = [],              % Associated resource ids for acl check
+    mime,                   % content-type
+    modified,               % modification time in localtime
+    modifiedUTC,            % modification time in UTC
+    last_stale_check,       % last time the stale check was run
+    parts = [],             % one request can consist of multiple parts from multiple sources
+    size = 0,               % total size of all parts
+    gzip_part,              % gzip is always a single part (in memory or in cache)
+    gzip_size,              % size of gzip encoded data
+    gzipper,                % ref to identify gzip process
+    waiting = [],           % List of waiting processes
+    index_ref
+}).
 
 
 %% Maximum uncompressed size that we will try to gzip.
 %% This is to preserve memory.
--define(MAX_GZIP_SIZE, 16*1024*1024).
+-define(MAX_GZIP_SIZE, 16 * 1024 * 1024).
 
 %% Period after a stop decision to handle late requests (5 secs)
 -define(STOP_TIMEOUT, 5000).
@@ -102,7 +102,7 @@
 %%% ------------------------------------------------------------------------------------
 
 start_link(RequestPath, Root, OptFilterProps, Context) when is_binary(RequestPath) ->
-    Args = [ RequestPath, Root, OptFilterProps, z_context:site(Context) ],
+    Args = [RequestPath, Root, OptFilterProps, z_context:site(Context)],
     gen_fsm:start_link({via, z_proc, {reg_name(RequestPath), Context}}, ?MODULE, Args, []).
 
 reg_name(RequestPath) ->
@@ -151,13 +151,13 @@ lookup(RequestPath, Context) when is_binary(RequestPath) ->
 
 init([RequestPath, Root, OptFilterProps, Site]) ->
     State = #state{
-        site=Site,
-        request_path=RequestPath,
-        root=Root,
-        image_filters=OptFilterProps,
+        site = Site,
+        request_path = RequestPath,
+        root = Root,
+        image_filters = OptFilterProps,
         mime = <<"application/octet-stream">>,
-        modified = {{1970,1,1},{0,0,0}},
-        modifiedUTC = {{1970,1,1},{0,0,0}},
+        modified = {{1970, 1, 1}, {0, 0, 0}},
+        modifiedUTC = {{1970, 1, 1}, {0, 0, 0}},
         last_stale_check = os:timestamp()
     },
     {ok, locate, State, 0}.
@@ -173,23 +173,25 @@ locate(timeout, State) ->
     Files = z_lib_include:uncollapse(State#state.request_path),
     try
         Sources = z_file_locate:locate_sources(State#state.root, State#state.image_filters, Files, Context),
-        AllMissing = lists:all(fun(#part_missing{}) -> true; (_) -> false end, Sources),
-        if
-            AllMissing ->
-                locate_enoent(State, IndexRef, Mime);
+        case lists:all(
+            fun(#part_missing{}) -> true; (_) -> false end,
+            Sources
+        ) of
             true ->
+                locate_enoent(State, IndexRef, Mime);
+            _ ->
                 Modified = newest_part(Sources, State#state.modified),
                 Size = total_size(Sources),
                 ModifiedUTC = hd(calendar:local_time_to_universal_time_dst(Modified)),
                 State1 = State#state{
-                    is_found=true,
-                    gzip_part=undefined,
-                    mime=Mime,
-                    size=Size,
-                    parts=Sources,
-                    modified=Modified,
-                    modifiedUTC=ModifiedUTC,
-                    index_ref=IndexRef
+                    is_found = true,
+                    gzip_part = undefined,
+                    mime = Mime,
+                    size = Size,
+                    parts = Sources,
+                    modified = Modified,
+                    modifiedUTC = ModifiedUTC,
+                    index_ref = IndexRef
                 },
                 {next_state, content_encoding_gzip, reply_waiting(State1), 0}
         end
@@ -203,9 +205,9 @@ locate(timeout, State) ->
 locate_enoent(State, IndexRef, Mime) ->
     State1 = State#state{
         is_found = false,
-        mime=Mime,
-        parts=[],
-        index_ref=IndexRef
+        mime = Mime,
+        parts = [],
+        index_ref = IndexRef
     },
     lager:debug("~p: File not found ~p", [State#state.site, State#state.request_path]),
     {next_state, serving, reply_waiting(State1), ?SERVING_ENOENT_TIMEOUT}.
@@ -235,7 +237,7 @@ stopping(timeout, State) ->
 %%% ------------------------------------------------------------------------------------
 
 handle_sync_event(lookup, From, locate, State) ->
-    {next_state, locate, State#state{waiting=[From|State#state.waiting]}, 0};
+    {next_state, locate, State#state{waiting = [From | State#state.waiting]}, 0};
 handle_sync_event(lookup, _From, stopping, State) ->
     {next_state, stopping, lookup_file_info(State), ?STOP_TIMEOUT};
 handle_sync_event(lookup, From, StateName, State) ->
@@ -244,7 +246,7 @@ handle_sync_event(lookup, From, StateName, State) ->
             Reply = lookup_file_info(State1),
             {reply, Reply, StateName, State1, timeout(StateName, State1#state.is_found)};
         stale ->
-            State1 = State#state{waiting=[From|State#state.waiting]},
+            State1 = State#state{waiting = [From | State#state.waiting]},
             {next_state, locate, State1, 0}
     end;
 handle_sync_event(force_stale, _From, _StateName, State) ->
@@ -261,11 +263,11 @@ handle_event(Msg, StateName, State) ->
     lager:error("Unexpected event ~p in state ~p", [Msg, StateName]),
     {next_state, StateName, State, timeout(StateName, State#state.is_found)}.
 
-handle_info({gzip, Ref, Data}, StateName, #state{gzipper=Ref} = State) ->
+handle_info({gzip, Ref, Data}, StateName, #state{gzipper = Ref} = State) ->
     State1 = State#state{
-        gzip_part=#part_data{data=Data},
-        gzip_size=size(Data),
-        gzipper=undefined
+        gzip_part = #part_data{data = Data},
+        gzip_size = size(Data),
+        gzipper = undefined
     },
     {next_state, StateName, State1, timeout(StateName, State1#state.is_found)};
 handle_info({'DOWN', MRef, process, _Pid, _Info}, StateName, State) ->
@@ -304,28 +306,29 @@ unreg(State) ->
     z_proc:unregister(reg_name(State#state.request_path), State#state.site).
 
 is_mref_part(MRef, Parts) ->
-    lists:any(fun(#part_cache{cache_monitor=Ref}) -> Ref =:= MRef ; (_) -> false end, Parts).
+    lists:any(fun(#part_cache{cache_monitor = Ref}) -> Ref =:= MRef; (_) ->
+        false end, Parts).
 
-check_current(#state{index_ref=IndexRef} = State) ->
+check_current(#state{index_ref = IndexRef} = State) ->
     case z_module_indexer:index_ref(z_context:new(State#state.site)) of
         IndexRef ->
             Now = os:timestamp(),
-            check_current_1(timer:now_diff(Now, State#state.last_stale_check), Now, State);
+            check_current1(timer:now_diff(Now, State#state.last_stale_check), Now, State);
         _Reindexed ->
             stale
     end.
 
-check_current_1(Diff, Now, State) when Diff > ?STALE_TIMER_DIFF ->
+check_current1(Diff, Now, State) when Diff > ?STALE_TIMER_DIFF ->
     case lists:any(fun is_stale_part/1, State#state.parts) of
         true -> stale;
-        false -> {ok, State#state{last_stale_check=Now}}
+        false -> {ok, State#state{last_stale_check = Now}}
     end;
-check_current_1(_Diff, _Now, State) ->
+check_current1(_Diff, _Now, State) ->
     {ok, State}.
 
-is_stale_part(#part_file{filepath=Filename, size=Size, modified=MTime}) ->
+is_stale_part(#part_file{filepath = Filename, size = Size, modified = MTime}) ->
     case file:read_file_info(Filename) of
-        {ok, #file_info{size=Size, type=regular, mtime=MTime}} ->
+        {ok, #file_info{size = Size, type = regular, mtime = MTime}} ->
             false;
         _ ->
             true
@@ -336,9 +339,9 @@ is_stale_part(_Part) ->
 reply_waiting(State) ->
     Reply = lookup_file_info(State),
     lists:foreach(fun(From) ->
-                        gen_fsm:reply(From, Reply)
-                  end, State#state.waiting),
-    State#state{waiting=[], last_stale_check=os:timestamp()}.
+        gen_fsm:reply(From, Reply)
+    end, State#state.waiting),
+    State#state{waiting = [], last_stale_check = os:timestamp()}.
 
 lookup_file_info(#state{is_found = false}) ->
     {error, enoent};
@@ -351,47 +354,47 @@ lookup_file_info(State) ->
         encodings = lookup_encodings(State)
     }}.
 
-lookup_encodings(#state{gzip_part=undefined} = State)  ->
+lookup_encodings(#state{gzip_part = undefined} = State) ->
     [{identity, State#state.parts}];
-lookup_encodings(#state{gzip_part=GzipPart} = State) ->
+lookup_encodings(#state{gzip_part = GzipPart} = State) ->
     [{identity, State#state.parts}, {gzip, [GzipPart]}].
 
 lookup_acls([], Acc) ->
     Acc;
-lookup_acls([#part_file{acl=undefined}|Ps], Acc) ->
+lookup_acls([#part_file{acl = undefined} | Ps], Acc) ->
     lookup_acls(Ps, Acc);
-lookup_acls([#part_data{acl=undefined}|Ps], Acc) ->
+lookup_acls([#part_data{acl = undefined} | Ps], Acc) ->
     lookup_acls(Ps, Acc);
-lookup_acls([#part_cache{acl=undefined}|Ps], Acc) ->
+lookup_acls([#part_cache{acl = undefined} | Ps], Acc) ->
     lookup_acls(Ps, Acc);
-lookup_acls([#part_file{acl=Acl}|Ps], Acc) ->
-    lookup_acls(Ps, [Acl|Acc]);
-lookup_acls([#part_data{acl=Acl}|Ps], Acc) ->
-    lookup_acls(Ps, [Acl|Acc]);
-lookup_acls([#part_cache{acl=Acl}|Ps], Acc) ->
-    lookup_acls(Ps, [Acl|Acc]);
-lookup_acls([#part_missing{}|Ps], Acc) ->
+lookup_acls([#part_file{acl = Acl} | Ps], Acc) ->
+    lookup_acls(Ps, [Acl | Acc]);
+lookup_acls([#part_data{acl = Acl} | Ps], Acc) ->
+    lookup_acls(Ps, [Acl | Acc]);
+lookup_acls([#part_cache{acl = Acl} | Ps], Acc) ->
+    lookup_acls(Ps, [Acl | Acc]);
+lookup_acls([#part_missing{} | Ps], Acc) ->
     lookup_acls(Ps, Acc).
 
 
 newest_part([], M) ->
     M;
-newest_part([#part_file{modified=M1}|Ps], M) when M =/= undefined, M1 > M ->
+newest_part([#part_file{modified = M1} | Ps], M) when M =/= undefined, M1 > M ->
     newest_part(Ps, M1);
-newest_part([#part_cache{modified=M1}|Ps], M) when M =/= undefined, M1 > M ->
+newest_part([#part_cache{modified = M1} | Ps], M) when M =/= undefined, M1 > M ->
     newest_part(Ps, M1);
-newest_part([#part_data{modified=M1}|Ps], M) when M =/= undefined, M1 > M ->
+newest_part([#part_data{modified = M1} | Ps], M) when M =/= undefined, M1 > M ->
     newest_part(Ps, M1);
-newest_part([_|Ps], M) ->
+newest_part([_ | Ps], M) ->
     newest_part(Ps, M).
 
 
 total_size(Parts) ->
-    lists:sum([ part_size(P) || P <- Parts ]).
+    lists:sum([part_size(P) || P <- Parts]).
 
-part_size(#part_file{size=Size}) when is_integer(Size) -> Size;
-part_size(#part_cache{size=Size}) when is_integer(Size) -> Size;
-part_size(#part_data{data=D}) when is_binary(D) -> size(D);
+part_size(#part_file{size = Size}) when is_integer(Size) -> Size;
+part_size(#part_cache{size = Size}) when is_integer(Size) -> Size;
+part_size(#part_data{data = D}) when is_binary(D) -> size(D);
 part_size(_) -> 0.
 
 is_compressable(<<"text/", _/binary>>) -> true;
@@ -405,9 +408,9 @@ start_link_gzip(Sources) ->
     Self = self(),
     Ref = erlang:make_ref(),
     Pid = erlang:spawn_link(fun() ->
-                          Bin = gzip_compress(Sources),
-                          Self ! {gzip, {Ref, self()}, Bin}
-                      end),
+        Bin = gzip_compress(Sources),
+        Self ! {gzip, {Ref, self()}, Bin}
+    end),
     {Ref, Pid}.
 
 % TODO: big files should be compressed to disk (tmpfile or filezcache should do)
@@ -415,42 +418,42 @@ start_link_gzip(Sources) ->
 
 gzip_compress(Sources) ->
     Z = zlib:open(),
-    zlib:deflateInit(Z, default, deflated, 16+?MAX_WBITS, 8, default),
-    Compressed = gzip_compress_1(Sources, Z, []),
+    zlib:deflateInit(Z, default, deflated, 16 + ?MAX_WBITS, 8, default),
+    Compressed = gzip_compress1(Sources, Z, []),
     Last = zlib:deflate(Z, <<>>, finish),
     ok = zlib:deflateEnd(Z),
     zlib:close(Z),
-    iolist_to_binary([Compressed,Last]).
+    iolist_to_binary([Compressed, Last]).
 
-gzip_compress_1([], _Z, Acc) ->
+gzip_compress1([], _Z, Acc) ->
     lists:reverse(Acc);
-gzip_compress_1([#part_data{data=B}|Ps], Z, Acc) ->
-    Acc1 = [ zlib:deflate(Z, B) | Acc],
-    gzip_compress_1(Ps, Z, Acc1);
-gzip_compress_1([#part_file{filepath=Filename}|Ps], Z, Acc) ->
+gzip_compress1([#part_data{data = B} | Ps], Z, Acc) ->
+    Acc1 = [zlib:deflate(Z, B) | Acc],
+    gzip_compress1(Ps, Z, Acc1);
+gzip_compress1([#part_file{filepath = Filename} | Ps], Z, Acc) ->
     Acc1 = compress_file(Filename, Z, Acc),
-    gzip_compress_1(Ps, Z, Acc1);
-gzip_compress_1([#part_cache{cache_pid=Pid}|Ps], Z, Acc) ->
+    gzip_compress1(Ps, Z, Acc1);
+gzip_compress1([#part_cache{cache_pid=Pid}|Ps], Z, Acc) ->
     {ok, {file, _, Filename}} = filezcache:lookup_file(Pid),
     Acc1 = compress_file(Filename, Z, Acc),
-    gzip_compress_1(Ps, Z, Acc1);
-gzip_compress_1([#part_missing{}|Ps], Z, Acc) ->
-    gzip_compress_1(Ps, Z, Acc).
+    gzip_compress1(Ps, Z, Acc1);
+gzip_compress1([#part_missing{} | Ps], Z, Acc) ->
+    gzip_compress1(Ps, Z, Acc).
 
 
 % We read 512K at once for compressing files.
--define(BLOCK_SIZE, 512*1024).
+-define(BLOCK_SIZE, 512 * 1024).
 
 compress_file(Filename, Z, Acc) ->
-    {ok, IO} = file:open(Filename, [read,raw,binary]),
-    Compressed = compress_file_1(Z, IO, Acc),
+    {ok, IO} = file:open(Filename, [read, raw, binary]),
+    Compressed = compress_file1(Z, IO, Acc),
     ok = file:close(IO),
     Compressed.
 
-compress_file_1(Z, IO, Acc) ->
+compress_file1(Z, IO, Acc) ->
     case file:read(IO, ?BLOCK_SIZE) of
         eof ->
             Acc;
         {ok, Data} ->
-            compress_file_1(Z, IO, [zlib:deflate(Z, Data)|Acc])
+            compress_file1(Z, IO, [zlib:deflate(Z, Data) | Acc])
     end.

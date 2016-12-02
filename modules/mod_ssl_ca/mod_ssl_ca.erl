@@ -67,11 +67,11 @@ cert_files(Context) ->
     SSLDir = filename:join([z_path:site_dir(Context), "ssl", "ca"]),
     Sitename = z_convert:to_list(z_context:site(Context)),
     Files = [
-        {certfile, filename:join(SSLDir, Sitename++".crt")},
-        {keyfile, filename:join(SSLDir, Sitename++".pem")},
+        {certfile, filename:join(SSLDir, Sitename ++ ".crt")},
+        {keyfile, filename:join(SSLDir, Sitename ++ ".pem")},
         {password, z_convert:to_list(m_config:get_value(mod_ssl, password, "", Context))}
     ] ++ z_ssl_certs:dh_options(),
-    CaCertFile = filename:join(SSLDir, Sitename++".ca.crt"),
+    CaCertFile = filename:join(SSLDir, Sitename ++ ".ca.crt"),
     case filelib:is_file(CaCertFile) of
         false -> {ok, Files};
         true -> {ok, [{cacertfile, CaCertFile} | Files]}

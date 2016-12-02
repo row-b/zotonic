@@ -29,57 +29,57 @@
 
 %% interface functions
 -export([
-	observe_content_types_dispatch/3,
-	observe_rsc_upload/2,
-	rsc_upload/3
+    observe_content_types_dispatch/3,
+    observe_rsc_upload/2,
+    rsc_upload/3
 ]).
 
 
 observe_content_types_dispatch(#content_types_dispatch{}, Acc, _Context) ->
-	[
-		{"application/json", rest_rsc},
-		{"application/x-bert", rest_rsc}
-		| Acc
-	].
+    [
+        {"application/json", rest_rsc},
+        {"application/x-bert", rest_rsc}
+        | Acc
+    ].
 
 
-observe_rsc_upload(#rsc_upload{id=Id, format=bert, data=Data}, Context) ->
-	case catch bert:decode(Data) of
-		Props when is_list(Props) ->
-			rsc_upload(Id, Props, Context);
-		_ ->
-			{error, badarg}
-	end.
+observe_rsc_upload(#rsc_upload{id = Id, format = bert, data = Data}, Context) ->
+    case catch bert:decode(Data) of
+        Props when is_list(Props) ->
+            rsc_upload(Id, Props, Context);
+        _ ->
+            {error, badarg}
+    end.
 
 
 rsc_upload(undefined, Props, Context) ->
-	m_rsc_update:insert(update_props(Props, Context), [{escape_texts, false}, is_import], Context);
+    m_rsc_update:insert(update_props(Props, Context), [{escape_texts, false}, is_import], Context);
 rsc_upload(Id, Props, Context) when is_integer(Id) ->
-	m_rsc_update:update(Id, update_props(Props, Context), [{escape_texts, false}, is_import], Context).
+    m_rsc_update:update(Id, update_props(Props, Context), [{escape_texts, false}, is_import], Context).
 
 update_props(Props, Context) ->
-    UpdateProps = lists:filter(fun({K,_}) ->
-    								is_updateable(z_convert:to_binary(K))
-    						   end,
-    						   Props),
-    [{category, map_category(Props, Context)} | UpdateProps ].
+    UpdateProps = lists:filter(fun({K, _}) ->
+        is_updateable(z_convert:to_binary(K))
+    end,
+        Props),
+    [{category, map_category(Props, Context)} | UpdateProps].
 
 map_category(Props, Context) ->
-	case proplists:get_value(computed_category, Props) of
-		undefined ->
-			other;
-		List ->
-			case lists:dropwhile(fun(Name) ->
-									case m_category:name_to_id(Name, Context) of
-										{ok, _} -> false;
-										{error, _} -> true
-									end
-								 end,
-								 List) of
-				[] -> other;
-				[N|_] -> N
-			end
-	end.
+    case proplists:get_value(computed_category, Props) of
+        undefined ->
+            other;
+        List ->
+            case lists:dropwhile(fun(Name) ->
+                case m_category:name_to_id(Name, Context) of
+                    {ok, _} -> false;
+                    {error, _} -> true
+                end
+            end,
+                List) of
+                [] -> other;
+                [N | _] -> N
+            end
+    end.
 
 is_updateable(<<"id">>) -> false;
 is_updateable(<<"category_id">>) -> false;

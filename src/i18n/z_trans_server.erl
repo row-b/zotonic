@@ -23,7 +23,7 @@
 
 %% gen_server exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([start_tests/0,start_link/1]).
+-export([start_tests/0, start_link/1]).
 
 %% interface functions
 -export([
@@ -73,7 +73,7 @@ table(#context{} = Context) ->
 
 %% @doc Set the table id in the context to the newest table id
 set_context_table(#context{} = Context) ->
-    Context#context{translation_table=table(z_context:site(Context))}.
+    Context#context{translation_table = table(z_context:site(Context))}.
 
 %% @doc Reload the translations when modules are changed.
 observe_module_ready(module_ready, Context) ->
@@ -93,11 +93,11 @@ init([Site, Name]) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
+    ]),
     process_flag(trap_exit, true),
     z_notifier:observe(module_ready, {?MODULE, observe_module_ready}, Site),
     Table = ets:new(Name, [named_table, set, protected, {read_concurrency, true}]),
-    {ok, #state{table=Table, site=Site}}.
+    {ok, #state{table = Table, site = Site}}.
 
 %% @spec handle_call(Request, From, State) -> {reply, Reply, State} |
 %%                                      {reply, Reply, State, Timeout} |
@@ -116,13 +116,13 @@ handle_call(Message, _From, State) ->
 %% @doc Rebuild the translations table. Call the template flush routines afterwards.
 %% Trans is a dict with all translations per translatable string.
 handle_cast({load_translations, Trans}, State) ->
-    F = fun(Key,Value,Acc) ->
-            Value1 = case proplists:get_value(en, Value) of
-                        undefined -> [{en,Key}|Value];
-                        _ -> Value
-                    end,
-            [{Key,Value1}|Acc]
+    F = fun(Key, Value, Acc) ->
+        Value1 = case proplists:get_value(en, Value) of
+            undefined -> [{en, Key} | Value];
+            _ -> Value
         end,
+        [{Key, Value1} | Acc]
+    end,
     List = dict:fold(F, [], Trans),
     sync_to_table(List, State#state.table),
     z_template:reset(State#state.site),
@@ -152,12 +152,12 @@ terminate(_Reason, State) ->
 %% @doc Convert process state when code is changed
 
 code_change(_OldVsn, State, _Extra) ->
-	case State of
-		{state, Table, _OldTable} ->
-			{ok, #state{table=Table}};
-		_ ->
-		    {ok, State}
-	end.
+    case State of
+        {state, Table, _OldTable} ->
+            {ok, #state{table = Table}};
+        _ ->
+            {ok, State}
+    end.
 
 
 %%====================================================================
@@ -167,26 +167,26 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @doc Sync a list of translations to the ets table containing all translations
 sync_to_table(List, Table) ->
-	LT = lists:sort(ets:tab2list(Table)),
-	List1 = lists:sort(List),
-	sync(List1, LT, Table).
+    LT = lists:sort(ets:tab2list(Table)),
+    List1 = lists:sort(List),
+    sync(List1, LT, Table).
 
 
 sync([], [], _Table) ->
-	ok;
+    ok;
 sync(L, [], Table) ->
-	ets:insert(Table, L);
+    ets:insert(Table, L);
 sync([], L, Table) ->
-	lists:map(fun({Key,_}) -> ets:delete(Table, Key) end, L);
-sync([H|NewList], [H|OldList], Table) ->
-	sync(NewList, OldList, Table);
-sync([{K,V}|NewList], [{K,_}|OldList], Table) ->
-	ets:insert(Table, [{K,V}]),
-	sync(NewList, OldList, Table);
-sync([{K1,V1}|NewList], [{K2,_}|_] = OldList, Table) when K1 < K2 ->
-	ets:insert(Table, [{K1,V1}]),
-	sync(NewList, OldList, Table);
-sync([{K1,_}|_] = NewList, [{K2,_}|OldList], Table) when K1 > K2 ->
-	ets:delete(Table, K2),
-	sync(NewList, OldList, Table).
+    lists:map(fun({Key, _}) -> ets:delete(Table, Key) end, L);
+sync([H | NewList], [H | OldList], Table) ->
+    sync(NewList, OldList, Table);
+sync([{K, V} | NewList], [{K, _} | OldList], Table) ->
+    ets:insert(Table, [{K, V}]),
+    sync(NewList, OldList, Table);
+sync([{K1, V1} | NewList], [{K2, _} | _] = OldList, Table) when K1 < K2 ->
+    ets:insert(Table, [{K1, V1}]),
+    sync(NewList, OldList, Table);
+sync([{K1, _} | _] = NewList, [{K2, _} | OldList], Table) when K1 > K2 ->
+    ets:delete(Table, K2),
+    sync(NewList, OldList, Table).
 

@@ -57,8 +57,8 @@
 
 
 -export([full/2,
-         simple/2
-         ]).
+    simple/2
+]).
 
 %% @doc Get the full representation of a resource.
 full(Id, Context) when is_integer(Id) ->
@@ -81,13 +81,17 @@ full(Id, Context) when is_integer(Id) ->
                                         join rsc p on p.id = e.predicate_id
                                 where e.subject_id = $1
                                 order by e.predicate_id, e.seq, e.id", [Id], Context),
-            Edges = [ edge_details(E, Context) || E <- Edges0],
+            Edges = [edge_details(E, Context) || E <- Edges0],
             Medium = m_media:get(Id, Context),
 
-            PreviewUrl = case z_media_tag:url(Id, [{width, 800}, {height, 800}, {upscale, true}, {absolute_url, true}], Context) of
-                            {ok, P} -> P;
-                            _ -> undefined
-                         end,
+            PreviewUrl = case z_media_tag:url(
+                Id,
+                [{width, 800}, {height, 800}, {upscale, true}, {absolute_url, true}],
+                Context
+            ) of
+                 {ok, P} -> P;
+                 _ -> undefined
+             end,
             Export = [
                 %% Essential fields
                 {id, Id},
@@ -111,13 +115,13 @@ full(Id, Context) ->
 
 filter_empty(List) ->
     lists:filter(
-        fun({_,V}) ->
+        fun({_, V}) ->
             not is_empty(V)
         end,
         List).
 
 is_empty({trans, L}) ->
-    lists:all(fun({_,V}) -> z_utils:is_empty(V) end, L);
+    lists:all(fun({_, V}) -> z_utils:is_empty(V) end, L);
 is_empty(V) ->
     z_utils:is_empty(V).
 
@@ -149,9 +153,9 @@ privacy_filter(Export) ->
 %% @doc Given an edge record, add the resource uris for the object and the predicate.
 edge_details(Edge, Context) ->
     Edge ++ [{predicate_uri, m_rsc:p(proplists:get_value(predicate_id, Edge), uri, Context)},
-             {predicate_title, m_rsc:p(proplists:get_value(predicate_id, Edge), title, Context)},
-             {object_uri, m_rsc:p(proplists:get_value(object_id, Edge), uri, Context)},
-             {object_title, m_rsc:p(proplists:get_value(object_id, Edge), title, Context)}].
+        {predicate_title, m_rsc:p(proplists:get_value(predicate_id, Edge), title, Context)},
+        {object_uri, m_rsc:p(proplists:get_value(object_id, Edge), uri, Context)},
+        {object_title, m_rsc:p(proplists:get_value(object_id, Edge), title, Context)}].
 
 
 %% Simple export with limited information (e.g. for atom feeds)

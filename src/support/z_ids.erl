@@ -20,8 +20,8 @@
 -author("Marc Worrell <marc@worrell.nl>").
 -include("zotonic.hrl").
 
--define(ID_LENGTH,20).
--define(OPTID_LENGTH,6).
+-define(ID_LENGTH, 20).
+-define(OPTID_LENGTH, 6).
 
 -export([
     unique/0,
@@ -59,7 +59,7 @@ unique() ->
 id() ->
     id(?ID_LENGTH).
 
--spec id(Length::integer()) -> binary().
+-spec id(Length :: integer()) -> binary().
 %% @doc Generate a random key consisting of numbers and upper and lower case
 %% characters.
 %%
@@ -73,13 +73,13 @@ id(Len) ->
 identifier() ->
     identifier(?OPTID_LENGTH).
 
--spec identifier(Length::integer()) -> binary().
+-spec identifier(Length :: integer()) -> binary().
 %% @doc Get a random identifier of a certain length, consisting of
 %% lower case characters only.
 identifier(Len) ->
     random_id('az', Len).
 
--spec random_id(charset(), Length::integer()) -> binary().
+-spec random_id(charset(), Length :: integer()) -> binary().
 %% @doc Get a random identifier of the specified length, consisting of
 %% characters from the specified set:
 %% - 'az'     [a-z]      : lower case characters only.
@@ -100,7 +100,7 @@ optid(false) ->
 optid(Id) ->
     Id.
 
--spec sign_key(Context::term()) -> binary().
+-spec sign_key(Context :: term()) -> binary().
 %% @doc Get the key for signing requests stored in the user agent.
 sign_key(Context) ->
     case m_config:get_value(site, sign_key, Context) of
@@ -114,7 +114,7 @@ sign_key(Context) ->
             SignKey
     end.
 
--spec sign_key_simple(Context::term()) -> binary().
+-spec sign_key_simple(Context :: term()) -> binary().
 %% @doc Get the key for less secure signing of data (without nonce).
 sign_key_simple(Context) ->
     case m_config:get_value(site, sign_key_simple, Context) of
@@ -147,7 +147,7 @@ application_key(Name) when is_atom(Name) ->
 number() ->
     number(1000000000).
 
--spec number(Max::integer()) -> integer().
+-spec number(Max :: integer()) -> integer().
 %% @doc Return a random integer less than or equal to Max. Max defaults to a
 %% large number smaller than MaxInt.
 number(Max) ->
@@ -167,34 +167,34 @@ make_unique() ->
     <<"t", Unique/binary>>.
 
 make_number(Max) ->
-    crypto:rand_uniform(1, Max+1).
+    crypto:rand_uniform(1, Max + 1).
 
--spec make_any_char_id(Length::integer()) -> binary().
+-spec make_any_char_id(Length :: integer()) -> binary().
 %% @doc Generate a random key consisting of numbers and upper and lower case
 %% characters.
 make_any_char_id(Len) ->
-    << << case N of
-              C when C < 26 -> C  + $a;
-              C when C < 52 -> C - 26 + $A;
-              C -> C - 52 + $0
-          end >>
-      || N <- random_list(62, Len)
+    <<<<case N of
+        C when C < 26 -> C + $a;
+        C when C < 52 -> C - 26 + $A;
+        C -> C - 52 + $0
+    end>>
+        || N <- random_list(62, Len)
     >>.
 
--spec make_lower_id(Length::integer()) -> binary().
+-spec make_lower_id(Length :: integer()) -> binary().
 %% @doc Generate a random identifier, only lower case letters
 make_lower_id(Len) ->
-    << << (N + $a) >> || N <- random_list(26, Len) >>.
+    <<<<(N + $a)>> || N <- random_list(26, Len)>>.
 
--spec make_no_upper_id(Length::integer()) -> binary().
+-spec make_no_upper_id(Length :: integer()) -> binary().
 %% @doc Generate a random identifier, only lower case letters and
 %% numbers
 make_no_upper_id(Len) ->
-    << << case N of
-              C when C < 26 -> C  + $a;
-              C -> C - 26 + $0
-          end >>
-      || N <- random_list(32, Len)
+    <<<<case N of
+        C when C < 26 -> C + $a;
+        C -> C - 26 + $0
+    end>>
+        || N <- random_list(32, Len)
     >>.
 
 random_list(Radix, Length) ->
@@ -205,7 +205,7 @@ random_list(Radix, Length) ->
 int2list(_, _, 0, Acc) ->
     Acc;
 int2list(Val, Radix, Length, Acc) ->
-    int2list(Val div Radix, Radix, Length-1, [ Val rem Radix | Acc]).
+    int2list(Val div Radix, Radix, Length - 1, [Val rem Radix | Acc]).
 
 bin2int(Bin) ->
     lists:foldl(fun(N, Acc) -> Acc * 256 + N end, 0, binary_to_list(Bin)).
@@ -224,5 +224,5 @@ rand_bytes(N) when N > 0 ->
     catch
         error:low_entropy ->
             lager:info("Crypto is low on entropy"),
-            list_to_binary([ crypto:rand_uniform(0,256) || _X <- lists:seq(1, N) ])
+            list_to_binary([crypto:rand_uniform(0, 256) || _X <- lists:seq(1, N)])
     end.

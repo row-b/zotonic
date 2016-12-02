@@ -1,6 +1,7 @@
 %% @author Marc Worrell <marc@worrell.nl>
 %% @copyright 2009 Marc Worrell
-%% @doc Supervisor for a zotonic server. Starts webmachine, all base zotonic processes and the site supervisor.
+%% @doc Supervisor for a zotonic server. Starts webmachine, all base zotonic
+%% processes and the site supervisor.
 
 %% Copyright 2009 Marc Worrell
 %%

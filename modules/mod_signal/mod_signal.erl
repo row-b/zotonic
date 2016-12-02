@@ -32,7 +32,17 @@
 
 -include("zotonic.hrl").
 
--export([connect/3, disconnect/3, emit/2, emit_script/2, emit_script/3, slots/2, item_count/1, slot_count/1, emit_signal/3]).
+-export([
+    connect/3,
+    disconnect/3,
+    emit/2,
+    emit_script/2,
+    emit_script/3,
+    slots/2,
+    item_count/1,
+    slot_count/1,
+    emit_signal/3
+]).
 
 % export for the tests
 -export([key/1, key/2]).
@@ -64,13 +74,13 @@ emit(Signal, Context) ->
     Slots = slots(Signal, Context),
     AsyncContext = z_context:prune_for_async(Context),
     lists:foreach(fun(Slot) ->
-              try
-                  emit_signal(Signal, Slot, AsyncContext)
-              catch M:E ->
-                  lager:error("Error emitting signal %p to slot %p. %p:%p. Disconnecting...", [Signal, Slot, M, E]),
-                  disconnect(Signal, Slot, AsyncContext)
-              end
-          end, Slots).
+        try
+            emit_signal(Signal, Slot, AsyncContext)
+        catch M:E ->
+            log_emit_error(Signal, Slot, M, E),
+            disconnect(Signal, Slot, AsyncContext)
+        end
+    end, Slots).
 
 emit_script(Signal, Context) ->
     {Scripts, CleanContext} = z_script:split(Context),
@@ -79,13 +89,13 @@ emit_script(Signal, Context) ->
 emit_script(Signal, Script, Context) ->
     Slots = slots(Signal, Context),
     lists:foreach(fun(Slot) ->
-            try
-                emit_signal_script(Script, Slot)
-            catch M:E ->
-                lager:error("Error emitting signal %p to slot %p. %p:%p. Disconnecting...", [Signal, Slot, M, E]),
-                disconnect(Signal, Slot, z_context:prune_for_async(Context))
-            end
-        end, Slots).
+        try
+            emit_signal_script(Script, Slot)
+        catch M:E ->
+            log_emit_error(Signal, Slot, M, E),
+            disconnect(Signal, Slot, z_context:prune_for_async(Context))
+        end
+    end, Slots).
 
 
 % @doc Emit a single signal
@@ -120,9 +130,9 @@ slots(Signal, Context) ->
 
 slots1(Slots, _Table, []) ->
     [Slot || {slot, _K, Slot} <- lists:flatten(Slots)];
-slots1(Slots, Table, [undefined|T]) ->
+slots1(Slots, Table, [undefined | T]) ->
     slots1(Slots, Table, T);
-slots1(Slots, Table, [H|T]) ->
+slots1(Slots, Table, [H | T]) ->
     slots1([ets:lookup(Table, H) | Slots], Table, T).
 
 % @doc Return how many items there
@@ -171,8 +181,8 @@ init(Args) ->
     lager:md([
         {site, Site},
         {module, ?MODULE}
-      ]),
-    {ok, #state{slots=[]}}.
+    ]),
+    {ok, #state{slots = []}}.
 
 handle_call({'connect', Signal, Slot}, _From, State) ->
     Key = {SignalType, SignalProps} = key(Signal),
@@ -182,11 +192,11 @@ handle_call({'connect', Signal, Slot}, _From, State) ->
     TagSet = ets:lookup(State#state.slots, SignalType),
 
     Objects = case lists:member({tags, SignalType, SignalTags}, TagSet) of
-                  true ->
-                      {slot, Key, Slot};
-                  false ->
-                      [{slot, Key, Slot}, {tags, SignalType, SignalTags}]
-              end,
+        true ->
+            {slot, Key, Slot};
+        false ->
+            [{slot, Key, Slot}, {tags, SignalType, SignalTags}]
+    end,
 
     % Important, this is one atomic operation! The table is read
     % asynchronously, so it must be updated in one operation.
@@ -209,7 +219,7 @@ handle_cast(Message, State) ->
     {stop, {unknown_cast, Message}, State}.
 
 handle_info({'ETS-TRANSFER', Table, _FromPid, slot_table}, State) ->
-    {noreply, State#state{slots=Table}};
+    {noreply, State#state{slots = Table}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -261,7 +271,7 @@ signal_type({SignalType, Props}) when is_atom(SignalType), is_list(Props) ->
 %
 key(SignalType) when is_atom(SignalType) ->
     {SignalType, []};
-key(Signal={SignalType, Props}) when is_atom(SignalType), is_list(Props) ->
+key(Signal = {SignalType, Props}) when is_atom(SignalType), is_list(Props) ->
     key(Signal, proplists:get_keys(Props)).
 
 key(SignalType, []) when is_atom(SignalType) ->
@@ -275,12 +285,18 @@ key({SignalType, Props}, Tags) when is_atom(SignalType), is_list(Props), is_list
             {SignalType, lists:reverse(KeyProps)}
     end.
 
-    key_props(undefined, _Props, _Tags) ->
-        undefined;
-    key_props(Acc, _Props, []) ->
-        Acc;
-    key_props(Acc, Props, [H | T]) ->
-        case proplists:lookup(H, Props) of
-            none -> undefined;
-            Item -> key_props([Item | Acc], Props, T)
-        end.
+key_props(undefined, _Props, _Tags) ->
+    undefined;
+key_props(Acc, _Props, []) ->
+    Acc;
+key_props(Acc, Props, [H | T]) ->
+    case proplists:lookup(H, Props) of
+        none -> undefined;
+        Item -> key_props([Item | Acc], Props, T)
+    end.
+
+log_emit_error(Signal, Slot, M, E) ->
+    lager:error(
+        "Error emitting signal %p to slot %p. %p:%p. Disconnecting...",
+        [Signal, Slot, M, E]
+    ).

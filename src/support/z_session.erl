@@ -81,33 +81,33 @@
 %% Callback for job/2 and spawn_link/2
 -export([
     do_spawned_job/2
-    ]).
+]).
 
 
 %% The session state
 -record(session, {
-            expire,
-            expire_1,
-            expire_n,
-            pages=[] :: list(),
-            linked=[],
-            session_id = undefined,
-            persist_id = undefined,
-            persist_is_saved = false,
-            persist_is_dirty = false,
-            props=[],
-            props_persist=[],
-            cookies=[],
-            transport,
-            jobs=[],
-            context
-            }).
+    expire,
+    expire_1,
+    expire_n,
+    pages = [] :: list(),
+    linked = [],
+    session_id = undefined,
+    persist_id = undefined,
+    persist_is_saved = false,
+    persist_is_dirty = false,
+    props = [],
+    props_persist = [],
+    cookies = [],
+    transport,
+    jobs = [],
+    context
+}).
 
 %% The state per page
 -record(page, {
-            page_id,
-            page_pid
-            }).
+    page_id,
+    page_pid
+}).
 
 
 -define(SIDEJOBS_PER_SESSION, 20).
@@ -129,7 +129,7 @@ stop(SessionPid) when is_pid(SessionPid) ->
     gen_server:cast(SessionPid, stop).
 
 
-set(Props, #context{session_pid=Pid}) ->
+set(Props, #context{session_pid = Pid}) ->
     set(Props, Pid);
 set(Props, Pid) when is_pid(Pid) ->
     gen_server:cast(Pid, {set, Props});
@@ -138,7 +138,7 @@ set(_Props, _) ->
 
 
 %% Set, get or increment session state variables.
-set(Key, Value, #context{session_pid=Pid}) ->
+set(Key, Value, #context{session_pid = Pid}) ->
     set(Key, Value, Pid);
 set(Key, Value, Pid) when is_pid(Pid) ->
     gen_server:cast(Pid, {set, Key, Value});
@@ -150,7 +150,7 @@ get(Key, Context) ->
     get(Key, Context, undefined).
 
 %% @doc Get a session value with a default.
-get(Key, #context{session_pid=Pid}, DefaultValue) ->
+get(Key, #context{session_pid = Pid}, DefaultValue) ->
     get(Key, Pid, DefaultValue);
 get(Key, Pid, DefaultValue) when is_pid(Pid) ->
     gen_server:call(Pid, {get, Key, DefaultValue});
@@ -158,19 +158,19 @@ get(_, _, DefaultValue) ->
     DefaultValue.
 
 
-incr(Key, Value, #context{session_pid=Pid}) ->
+incr(Key, Value, #context{session_pid = Pid}) ->
     incr(Key, Value, Pid);
 incr(Key, Value, Pid) ->
     gen_server:call(Pid, {incr, Key, Value}).
 
 % @doc Get the session_id of this session.
-session_id(#context{session_pid=Pid}) ->
+session_id(#context{session_pid = Pid}) ->
     session_id(Pid);
 session_id(Pid) ->
     gen_server:call(Pid, session_id).
 
 % @doc Rename the session
-rename_session(NewSessionId, #context{session_pid=Pid}) ->
+rename_session(NewSessionId, #context{session_pid = Pid}) ->
     rename_session(NewSessionId, Pid);
 rename_session(NewSessionId, Pid) ->
     gen_server:call(Pid, {rename_session, NewSessionId}).
@@ -178,24 +178,24 @@ rename_session(NewSessionId, Pid) ->
 persistent_id(Context) ->
     gen_server:call(Context#context.session_pid, persistent_id).
 
-set_persistent(_Key, _Value, #context{session_pid=undefined} = Context) ->
+set_persistent(_Key, _Value, #context{session_pid = undefined} = Context) ->
     Context;
 set_persistent(Key, Value, Context) ->
     case gen_server:call(Context#context.session_pid, {set_persistent, Key, Value}) of
         {new_persist_id, NewPersistCookieId} ->
             Options = [
-                 {max_age, ?PERSIST_COOKIE_MAX_AGE},
-                 {path, "/"},
-                 {http_only, true}],
-             z_context:set_cookie(?PERSIST_COOKIE, NewPersistCookieId, Options, Context);
+                {max_age, ?PERSIST_COOKIE_MAX_AGE},
+                {path, "/"},
+                {http_only, true}],
+            z_context:set_cookie(?PERSIST_COOKIE, NewPersistCookieId, Options, Context);
         ok ->
             Context
     end.
 
 get_persistent(Key, Context) ->
-   get_persistent(Key, Context, undefined).
+    get_persistent(Key, Context, undefined).
 
-get_persistent(_Key, #context{session_pid=undefined}, DefaultValue) ->
+get_persistent(_Key, #context{session_pid = undefined}, DefaultValue) ->
     DefaultValue;
 get_persistent(Key, Context, DefaultValue) ->
     gen_server:call(Context#context.session_pid, {get_persistent, Key, DefaultValue}).
@@ -231,15 +231,15 @@ receive_ack(Ack, Context) ->
 
 
 %% @doc Store a cookie on the session. Useful for setting cookies from a websocket connection.
-add_cookie(Key, Value, Options, #context{session_pid=Pid}) ->
+add_cookie(Key, Value, Options, #context{session_pid = Pid}) ->
     gen_server:cast(Pid, {add_cookie, Key, Value, Options}).
 
 %% @doc Get cookies stored on the session.
-get_cookies(#context{session_pid=Pid}) ->
+get_cookies(#context{session_pid = Pid}) ->
     gen_server:call(Pid, get_cookies).
 
 %% @doc Resets cookies temporarily stored on the session.
-clear_cookies(#context{session_pid=Pid}) ->
+clear_cookies(#context{session_pid = Pid}) ->
     gen_server:cast(Pid, clear_cookies).
 
 %% @doc Reset the expire counter of the session, called from the page process when comet attaches
@@ -256,20 +256,20 @@ keepalive(PageId, Pid) ->
 %% @doc Make sure that the request has a page session, when the page session was alive then
 %%      adjust the expiration of the page.  Returns a new context with the page id set.
 -spec ensure_page_session(#context{}) -> #context{}.
-ensure_page_session(#context{req=undefined} = Context) ->
+ensure_page_session(#context{req = undefined} = Context) ->
     Context;
-ensure_page_session(#context{session_pid=undefined} = Context) ->
+ensure_page_session(#context{session_pid = undefined} = Context) ->
     lager:debug("ensure page session without a session_pid"),
     Context;
-ensure_page_session(#context{page_pid=undefined}=Context) ->
+ensure_page_session(#context{page_pid = undefined} = Context) ->
     {ok, NewPageId, PagePid} = gen_server:call(Context#context.session_pid, start_page_session),
-    Context#context{page_id=NewPageId, page_pid=PagePid};
+    Context#context{page_id = NewPageId, page_pid = PagePid};
 ensure_page_session(Context) ->
     Context.
 
 
 %% @doc Lookup a page session (if any)
-lookup_page_session(_PageId, #context{session_pid=undefined}) ->
+lookup_page_session(_PageId, #context{session_pid = undefined}) ->
     {error, notfound};
 lookup_page_session(PageId, Context) when is_binary(PageId) ->
     gen_server:call(Context#context.session_pid, {lookup_page_session, PageId}).
@@ -304,9 +304,9 @@ dump(Pid) ->
 
 %% @doc Spawn a new process, linked to the session pid, supervised by sidejob
 -spec spawn_link(atom(), atom(), list(), #context{}) -> {ok, pid()} | {error, no_session|overload}.
-spawn_link(_Module, _Func, _Args, #context{session_pid=undefined}) ->
+spawn_link(_Module, _Func, _Args, #context{session_pid = undefined}) ->
     {error, no_session};
-spawn_link(Module, Func, Args, #context{session_pid=SessionPid} = Context) ->
+spawn_link(Module, Func, Args, #context{session_pid = SessionPid} = Context) ->
     Job = {Module, Func, Args},
     case sidejob_supervisor:spawn(zotonic_sidejobs, {?MODULE, do_spawned_job, [Job, Context]}) of
         {ok, Pid} when is_pid(Pid) ->
@@ -317,14 +317,15 @@ spawn_link(Module, Func, Args, #context{session_pid=SessionPid} = Context) ->
     end.
 
 -spec is_job_overload(#context{}) -> boolean().
-is_job_overload(#context{session_pid=SessionPid}) ->
+is_job_overload(#context{session_pid = SessionPid}) ->
     case gen_server:call(SessionPid, sidejob_check, infinity) of
         ok -> false;
         overload -> true
     end.
 
--spec job(list(#z_msg_v1{})|#z_msg_v1{}|function()|{atom(),atom(),list()}, #context{}) -> {ok, pid()|undefined} | {error, overload}.
-job(Job, #context{session_pid=undefined} = Context) ->
+-spec job(list(#z_msg_v1{})|#z_msg_v1{}|function()|{atom(), atom(), list()}, #context{}) ->
+    {ok, pid()|undefined} | {error, overload}.
+job(Job, #context{session_pid = undefined} = Context) ->
     case Job of
         Fun when is_function(Fun, 0) ->
             Fun(),
@@ -332,16 +333,18 @@ job(Job, #context{session_pid=undefined} = Context) ->
         Fun when is_function(Fun, 1) ->
             Fun(Context),
             {ok, [], Context};
-        {M,F,A} ->
+        {M, F, A} ->
             erlang:apply(M, F, A),
             {ok, [], Context};
         Msg ->
             z_transport:incoming(Msg, Context)
     end;
-job(Job, #context{session_pid=SessionPid} = Context) ->
+job(Job, #context{session_pid = SessionPid} = Context) ->
     case gen_server:call(SessionPid, job_check, infinity) of
         ok ->
-            case sidejob_supervisor:spawn(zotonic_sessionjobs, {?MODULE, do_spawned_job, [Job, Context]}) of
+            case sidejob_supervisor:spawn(
+                zotonic_sessionjobs, {?MODULE, do_spawned_job, [Job, Context]}
+            ) of
                 {ok, Pid} when is_pid(Pid) ->
                     gen_server:cast(SessionPid, {job, Pid}),
                     {ok, Pid};
@@ -352,12 +355,12 @@ job(Job, #context{session_pid=SessionPid} = Context) ->
             {error, overload}
     end.
 
--spec do_spawned_job(list(#z_msg_v1{})|#z_msg_v1{}|function()|{atom(),atom(),list()}, #context{}) -> ok.
-do_spawned_job(Fun, _Context) when is_function(Fun,0) ->
+-spec do_spawned_job(list(#z_msg_v1{})|#z_msg_v1{}|function()|{atom(), atom(), list()}, #context{}) -> ok.
+do_spawned_job(Fun, _Context) when is_function(Fun, 0) ->
     Fun();
-do_spawned_job(Fun, Context) when is_function(Fun,1) ->
+do_spawned_job(Fun, Context) when is_function(Fun, 1) ->
     Fun(Context);
-do_spawned_job({M,F,A}, _Context) ->
+do_spawned_job({M, F, A}, _Context) ->
     erlang:apply(M, F, A);
 do_spawned_job(Msg, Context) ->
     {ok, Reply, Context1} = z_transport:incoming(Msg, Context),
@@ -374,7 +377,7 @@ init({Host, SessionId, PersistId}) ->
     lager:md([
         {site, Host},
         {module, ?MODULE}
-      ]),
+    ]),
     gproc:reg({p, l, {Host, user_session, undefined}}),
     {ok, new_session(Host, SessionId, PersistId)}.
 
@@ -384,17 +387,17 @@ handle_cast(stop, Session) ->
 %% @doc Reset the timeout counter for the session and, optionally, a specific page
 handle_cast(keepalive, Session) ->
     Session1 = Session#session{
-                    expire=z_utils:now() + Session#session.expire_n
-                },
+        expire = z_utils:now() + Session#session.expire_n
+    },
     {noreply, Session1};
 
 %% @doc Reset the timeout counter, propagate to the page process.
 handle_cast({keepalive, PageId}, Session) ->
     Session1 = Session#session{
-                    expire=z_utils:now() + Session#session.expire_n
-                },
+        expire = z_utils:now() + Session#session.expire_n
+    },
     case find_page(PageId, Session1) of
-        #page{page_pid=Pid} -> z_session_page:ping(Pid);
+        #page{page_pid = Pid} -> z_session_page:ping(Pid);
         undefined -> ok
     end,
     {noreply, Session1};
@@ -402,8 +405,8 @@ handle_cast({keepalive, PageId}, Session) ->
 %% @doc Check session expiration, stop when passed expiration.
 handle_cast({check_expire, Now}, Session) ->
     Session1 = Session#session{
-                    transport=z_transport_queue:periodic(Session#session.transport)
-                },
+        transport = z_transport_queue:periodic(Session#session.transport)
+    },
     case Session1#session.pages of
         [] ->
             if
@@ -411,11 +414,12 @@ handle_cast({check_expire, Now}, Session) ->
                 true -> {noreply, Session1}
             end;
         _ ->
-            Expire   = Now + ?SESSION_PAGE_TIMEOUT,
+            Expire = Now + ?SESSION_PAGE_TIMEOUT,
             Session2 = if
-                            Expire > Session1#session.expire -> Session1#session{expire=Expire};
-                            true -> Session1
-                       end,
+                Expire > Session1#session.expire ->
+                    Session1#session{expire = Expire};
+                true -> Session1
+            end,
             {noreply, Session2}
     end;
 
@@ -424,38 +428,38 @@ handle_cast({send_script, Script, PageId}, Session) ->
     case find_page(PageId, Session) of
         undefined ->
             Session;
-        #page{page_pid=Pid} ->
+        #page{page_pid = Pid} ->
             z_session_page:add_script(Script, Pid)
     end,
     {noreply, Session};
 
 
 %% @doc Add a message to all page's transport queues
-handle_cast({transport, Msg}, #session{pages=[]} = Session) ->
-    {noreply, Session#session{transport=z_transport_queue:in(Msg, Session#session.transport)}};
-handle_cast({transport, Msg}, #session{pages=Pages} = Session) ->
+handle_cast({transport, Msg}, #session{pages = []} = Session) ->
+    {noreply, Session#session{transport = z_transport_queue:in(Msg, Session#session.transport)}};
+handle_cast({transport, Msg}, #session{pages = Pages} = Session) ->
     lists:foreach(
-            fun (P) ->
-                z_session_page:transport(Msg, P#page.page_pid)
-            end,
-            Pages),
+        fun(P) ->
+            z_session_page:transport(Msg, P#page.page_pid)
+        end,
+        Pages),
     Transport1 = z_transport_queue:wait_ack(Msg, session, Session#session.transport),
-    {noreply, Session#session{transport=Transport1}};
+    {noreply, Session#session{transport = Transport1}};
 
 %% @doc Receive a message ack
 handle_cast({receive_ack, Ack}, Session) ->
     Transport1 = z_transport_queue:ack(Ack, Session#session.transport),
-    {noreply, Session#session{transport=Transport1}};
+    {noreply, Session#session{transport = Transport1}};
 
 
 %% @doc Add a cookie to the session. Useful for setting cookies from a websocket connection.
 handle_cast({add_cookie, Key, Value, Options}, Session) ->
     Cookies = [{Key, Value, Options} | Session#session.cookies],
-    {noreply, Session#session{cookies=Cookies}};
+    {noreply, Session#session{cookies = Cookies}};
 
 %% @doc Reset the stored cookies.
 handle_cast(clear_cookies, Session) ->
-    {noreply, Session#session{cookies=[]}};
+    {noreply, Session#session{cookies = []}};
 
 %% @doc Set the session variable, replaces any old value
 handle_cast({set, language, Value}, Session) ->
@@ -464,7 +468,7 @@ handle_cast({set, language, Value}, Session) ->
             {noreply, Session};
         _ ->
             Session1 = handle_set(language, Value, Session),
-            z_notifier:notify(#language{language=Value}, Session1#session.context),
+            z_notifier:notify(#language{language = Value}, Session1#session.context),
             {noreply, Session1}
     end;
 
@@ -474,22 +478,22 @@ handle_cast({set, Key, Value}, Session) ->
     {noreply, Session2};
 
 handle_cast({set, Props}, Session) ->
-    Props1 = lists:foldl(fun({K,V}, Ps) ->
-                            prop_replace(K, V, Ps, z_context:site(Session#session.context))
-                         end,
-                         Session#session.props,
-                         Props),
+    Props1 = lists:foldl(fun({K, V}, Ps) ->
+        prop_replace(K, V, Ps, z_context:site(Session#session.context))
+    end,
+        Session#session.props,
+        Props),
     {noreply, Session#session{props = Props1}};
 
 handle_cast({link, Pid}, Session) ->
     MRef = erlang:monitor(process, Pid),
-    Linked = [{Pid,MRef} | Session#session.linked],
-    {noreply, Session#session{linked=Linked}};
+    Linked = [{Pid, MRef} | Session#session.linked],
+    {noreply, Session#session{linked = Linked}};
 
 handle_cast({job, Pid}, Session) ->
     MRef = erlang:monitor(process, Pid),
     erlang:link(Pid),
-    {noreply, Session#session{jobs=[{Pid,MRef}|Session#session.jobs]}};
+    {noreply, Session#session{jobs = [{Pid, MRef} | Session#session.jobs]}};
 
 handle_cast(dump, Session) ->
     io:format("~p~n", [Session]),
@@ -509,7 +513,8 @@ handle_cast(Msg, Session) ->
 handle_call(persistent_id, _From, Session) ->
     PersistedSession = case Session#session.persist_is_saved of
         true -> Session;
-        false -> save_persist(Session#session{persist_is_dirty=true})
+        false ->
+            save_persist(Session#session{persist_is_dirty = true})
     end,
     {reply, PersistedSession#session.persist_id, PersistedSession};
 
@@ -520,15 +525,15 @@ handle_call(session_id, _From, Session) ->
 
 %% @doc Rename the session
 handle_call({rename_session, NewSessionId}, _From, Session) ->
-    {reply, ok, Session#session{session_id=NewSessionId}};
+    {reply, ok, Session#session{session_id = NewSessionId}};
 
 %% @doc Set a persistent variable, replaces any old value
-handle_call({set_persistent, Key, Value}, _From, #session{persist_id=undefined}=Session) ->
+handle_call({set_persistent, Key, Value}, _From, #session{persist_id = undefined} = Session) ->
     PersistId = new_id(),
     Session1 = Session#session{
-        persist_id=PersistId,
-        props_persist=[{Key, Value}],
-        persist_is_dirty=true},
+        persist_id = PersistId,
+        props_persist = [{Key, Value}],
+        persist_is_dirty = true},
     {reply, {new_persist_id, PersistId}, save_persist(Session1)};
 handle_call({set_persistent, Key, Value}, _From, Session) ->
     case proplists:get_value(Key, Session#session.props_persist) of
@@ -538,9 +543,9 @@ handle_call({set_persistent, Key, Value}, _From, Session) ->
             % @todo Save the persistent state on tick, and not every time it is changed.
             %       For now (and for testing) this is ok.
             Session1 = Session#session{
-                            props_persist = z_utils:prop_replace(Key, Value, Session#session.props_persist),
-                            persist_is_dirty = true
-                    },
+                props_persist = z_utils:prop_replace(Key, Value, Session#session.props_persist),
+                persist_is_dirty = true
+            },
             {reply, ok, save_persist(Session1)}
     end;
 
@@ -569,18 +574,18 @@ handle_call({lookup_page_session, PageId}, _From, Session) ->
     case find_page(PageId, Session) of
         undefined ->
             {reply, {error, notfound}, Session};
-        #page{page_pid=Pid} ->
+        #page{page_pid = Pid} ->
             z_session_page:ping(Pid),
             {reply, {ok, Pid}, Session}
     end;
 
 handle_call(get_attach_state, _From, Session) ->
-    {reply, [z_session_page:get_attach_state(Pid) ||  #page{page_pid=Pid} <- Session#session.pages], Session};
+    {reply, [z_session_page:get_attach_state(Pid) || #page{page_pid = Pid} <- Session#session.pages], Session};
 
 handle_call(get_pages, _From, Session) ->
-    {reply, [ Pid ||  #page{page_pid=Pid} <- Session#session.pages], Session};
+    {reply, [Pid || #page{page_pid = Pid} <- Session#session.pages], Session};
 
-handle_call(job_check, _From, #session{jobs=Jobs} = Session) ->
+handle_call(job_check, _From, #session{jobs = Jobs} = Session) ->
     Reply = case length(Jobs) < ?SIDEJOBS_PER_SESSION of
         true -> ok;
         false -> overload
@@ -596,17 +601,17 @@ handle_call(Msg, _From, Session) ->
 
 handle_info({'DOWN', _MonitorRef, process, Pid, _Info}, Session) ->
     case lists:keytake(Pid, 1, Session#session.jobs) of
-        {value, {Pid,_MRef}, Jobs} ->
-            {noreply, Session#session{jobs=Jobs}};
+        {value, {Pid, _MRef}, Jobs} ->
+            {noreply, Session#session{jobs = Jobs}};
         false ->
             case lists:keytake(Pid, 1, Session#session.linked) of
-                {value, {Pid,_MRef}, Linked} ->
-                    {noreply, Session#session{linked=Linked}};
+                {value, {Pid, _MRef}, Linked} ->
+                    {noreply, Session#session{linked = Linked}};
                 false ->
                     case lists:keytake(Pid, #page.page_pid, Session#session.pages) of
                         {value, #page{}, Pages} ->
                             exometer:update([zotonic, z_context:site(Session#session.context), session, page_processes], -1),
-                            {noreply, Session#session{pages=Pages}};
+                            {noreply, Session#session{pages = Pages}};
                         false ->
                             % Happens after auth-change, where we disconnect all pages.
                             {noreply, Session}
@@ -651,7 +656,7 @@ exit_linked({Pid, MRef}) ->
 
 
 handle_set(Key, Value, Session) ->
-    Session#session{ props = prop_replace(Key, Value, Session#session.props, z_context:site(Session#session.context))}.
+    Session#session{props = prop_replace(Key, Value, Session#session.props, z_context:site(Session#session.context))}.
 
 
 maybe_auth_change(auth_user_id, UserId, Session, OldSession) ->
@@ -663,37 +668,37 @@ maybe_auth_change(auth_user_id, UserId, Session, OldSession) ->
         undefined when UserId =:= none ->
             Session;
         _OldUserId ->
-            lists:foreach(fun(#page{page_pid=PagePid}) ->
-                              z_session_page:auth_change(PagePid)
-                           end,
-                           Session#session.pages),
-            Session#session{pages=[], transport=z_transport_queue:new()}
+            lists:foreach(fun(#page{page_pid = PagePid}) ->
+                z_session_page:auth_change(PagePid)
+            end,
+                Session#session.pages),
+            Session#session{pages = [], transport = z_transport_queue:new()}
     end;
 maybe_auth_change(_K, _V, Session, _OldSession) ->
     Session.
 
 
 %% @doc Try to transport all queued messages to the connected pages
-transport_all(#session{pages=[]} = Session) ->
+transport_all(#session{pages = []} = Session) ->
     Session;
-transport_all(#session{transport=Transport, pages=Pages} = Session) ->
+transport_all(#session{transport = Transport, pages = Pages} = Session) ->
     case z_transport_queue:is_empty(Transport) of
         true ->
             Session;
         false ->
-            {Ms,Transport1} = z_transport_queue:out_all(Transport),
+            {Ms, Transport1} = z_transport_queue:out_all(Transport),
             lists:foreach(
-                fun(#page{page_pid=PagePid}) ->
+                fun(#page{page_pid = PagePid}) ->
                     z_session_page:transport(Ms, PagePid)
                 end,
                 Pages),
             Transport2 = lists:foldl(
-                            fun(Msg, TQAcc) ->
-                                z_transport_queue:wait_ack(Msg, session, TQAcc)
-                            end,
-                            Transport1,
-                            Ms),
-            Session#session{transport=Transport2}
+                fun(Msg, TQAcc) ->
+                    z_transport_queue:wait_ack(Msg, session, TQAcc)
+                end,
+                Transport1,
+                Ms),
+            Session#session{transport = Transport2}
     end.
 
 
@@ -703,32 +708,32 @@ new_session(Host, SessionId, PersistId) ->
     Expire1 = z_convert:to_integer(m_config:get_value(site, session_expire_1, ?SESSION_EXPIRE_1, Context)),
     ExpireN = z_convert:to_integer(m_config:get_value(site, session_expire_n, ?SESSION_EXPIRE_N, Context)),
     load_persist(#session{
-            expire=z_utils:now() + Expire1,
-            expire_1 = Expire1,
-            expire_n = ExpireN,
-            session_id = SessionId,
-            persist_id = PersistId,
-            transport=z_transport_queue:new(),
-            context=Context
-            }).
+        expire = z_utils:now() + Expire1,
+        expire_1 = Expire1,
+        expire_n = ExpireN,
+        session_id = SessionId,
+        persist_id = PersistId,
+        transport = z_transport_queue:new(),
+        context = Context
+    }).
 
 
 %% @doc Load the persistent data from the database, used on session start.
 load_persist(Session) ->
     {PropsPersist, PersistIsSaved} =
-            case m_persistent:get(Session#session.persist_id, Session#session.context) of
-                L when is_list(L) -> {L,  true};
-                _ -> {[], false}
-            end,
+        case m_persistent:get(Session#session.persist_id, Session#session.context) of
+            L when is_list(L) -> {L, true};
+            _ -> {[], false}
+        end,
     Session#session{
-        props_persist    = PropsPersist,
+        props_persist = PropsPersist,
         persist_is_dirty = false,
         persist_is_saved = PersistIsSaved
     }.
 
 
 %% @doc Save the persistent data to the database, when it is changed. Reset the dirty flag.
-save_persist(#session{persist_is_dirty=true, persist_id=Id, props_persist=Props, context=Context} = Session) ->
+save_persist(#session{persist_is_dirty = true, persist_id = Id, props_persist = Props, context = Context} = Session) ->
     ok = m_persistent:put(Id, Props, Context),
     Session#session{persist_is_dirty = false, persist_is_saved = true};
 save_persist(Session) ->
@@ -758,17 +763,17 @@ do_ensure_page_session_new(Session) ->
         {error, already_started} ->
             do_ensure_page_session_new(Session);
         {ok, P} ->
-            {P, Session#session{pages=[P|Session#session.pages]}}
+            {P, Session#session{pages = [P | Session#session.pages]}}
     end.
 
 %% @doc Return a new page record, monitor the started page process because we want to know about normal exits
 page_start(Context) ->
     PageId = new_id(),
     case z_session_page:start_link(self(), PageId, Context) of
-        {ok,PagePid} ->
+        {ok, PagePid} ->
             erlang:monitor(process, PagePid),
             exometer:update([zotonic, z_context:site(Context), session, page_processes], 1),
-            {ok, #page{page_pid=PagePid, page_id=PageId}};
+            {ok, #page{page_pid = PagePid, page_id = PageId}};
         {error, {already_started, _PagePid}} ->
             lager:error("Page-session process already running ~p", [PageId]),
             {error, already_started}

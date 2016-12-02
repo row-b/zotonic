@@ -46,7 +46,8 @@
 abspath(File, Context) ->
     filename:join([z_path:media_archive(Context), z_convert:to_list(File)]).
 
-%% @doc Ensure that the filename is relative to the archive.  When needed move the file to the archive.  Return the relative path.
+%% @doc Ensure that the filename is relative to the archive. When needed move
+%% the file to the archive.  Return the relative path.
 ensure_relative(File, Context) ->
     ensure_relative(File, filename:basename(File), Context).
 
@@ -78,7 +79,8 @@ archive_file(Filename, NewBasename, Context) ->
             AbsPath = abspath(NewFile, Context),
             ok = filelib:ensure_dir(AbsPath),
             case file:rename(Fileabs, AbsPath) of
-                %% cross-fs rename is not supported by erlang, so copy and delete the file
+                %% cross-fs rename is not supported by erlang, so copy and
+                %% delete the file
                 {error, exdev} ->
                     {ok, _BytesCopied} = file:copy(Fileabs, AbsPath),
                     ok = file:delete(Fileabs);
@@ -98,12 +100,12 @@ archive_copy(Filename, NewBasename, Context) ->
 
 archive_copy(archive, Filename, NewBasename, Context) ->
     NewFile = archive_filename(NewBasename, Context),
-    archive_copy_1(Filename, NewFile, Context);
+    archive_copy1(Filename, NewFile, Context);
 archive_copy(preview, Filename, NewBasename, Context) ->
     NewFile = preview_filename(NewBasename, Context),
-    archive_copy_1(Filename, NewFile, Context).
+    archive_copy1(Filename, NewFile, Context).
 
-archive_copy_1(Filename, NewFile, Context) ->
+archive_copy1(Filename, NewFile, Context) ->
     Fileabs = filename:absname(Filename),
     AbsPath = abspath(NewFile, Context),
     ok = filelib:ensure_dir(AbsPath),
@@ -111,8 +113,8 @@ archive_copy_1(Filename, NewFile, Context) ->
     NewFile.
 
 
-%% @doc Optionally archive a copy of a file in the archive directory (when it is not archived yet)
-%% @spec archive_copy_opt(Filename, Context) -> ArchivedFilename
+%% @doc Optionally archive a copy of a file in the archive directory (when it is
+%% not archived yet)
 archive_copy_opt(Filename, Context) ->
     archive_copy_opt(Filename, filename:basename(Filename), Context).
 
@@ -137,43 +139,49 @@ archive_delete(Filename, Context) ->
 
 %% Return an unique filename for archiving the file
 archive_filename(Filename, Context) ->
-    {{Y,M,D}, _} = z_datetime:to_local(calendar:universal_time(), Context),
+    {{Y, M, D}, _} = z_datetime:to_local(calendar:universal_time(), Context),
     Rootname = filename:rootname(filename:basename(Filename)),
     Extension = filename:extension(Filename),
-    RelRoot = filename:join([integer_to_list(Y),integer_to_list(M),integer_to_list(D),safe_filename(Rootname)]),
+    RelRoot = filename:join([
+        integer_to_list(Y),
+        integer_to_list(M),
+        integer_to_list(D),
+        safe_filename(Rootname)
+    ]),
     make_unique(RelRoot, z_convert:to_list(Extension), Context).
 
 preview_filename(Filename, Context) ->
     Rootname = filename:rootname(filename:basename(Filename)),
     Extension = filename:extension(Filename),
     RelRoot = filename:join([
-                    "preview",
-                    z_ids:identifier(2),
-                    z_ids:identifier(2),
-                    safe_filename(Rootname)]),
+        "preview",
+        z_ids:identifier(2),
+        z_ids:identifier(2),
+        safe_filename(Rootname)]),
     make_unique(RelRoot, z_convert:to_list(Extension), Context).
 
 
-safe_filename(<<$.,Rest/binary>>) ->
+safe_filename(<<$., Rest/binary>>) ->
     safe_filename(<<$_, Rest/binary>>);
 safe_filename(B) when is_binary(B) ->
     AsName = z_convert:to_binary(z_string:to_name(B)),
-    safe_filename_1(AsName, <<>>);
+    safe_filename1(AsName, <<>>);
 safe_filename(L) when is_list(L) ->
     safe_filename(iolist_to_binary(L)).
 
-safe_filename_1(<<>>, Acc) ->
+safe_filename1(<<>>, Acc) ->
     Acc;
-safe_filename_1(<<C/utf8, Rest/binary>>, Acc)
+safe_filename1(<<C/utf8, Rest/binary>>, Acc)
     when (C >= $a andalso C =< $z)
-        orelse (C >= $0 andalso C =< $9)
-        orelse C == $. orelse C == $- orelse C == $_ ->
-    safe_filename_1(Rest, <<Acc/binary,C>>);
-safe_filename_1(<<_/utf8, Rest/binary>>, Acc) ->
-    safe_filename_1(Rest, <<Acc/binary, $_>>).
+    orelse (C >= $0 andalso C =< $9)
+    orelse C == $. orelse C == $- orelse C == $_ ->
+    safe_filename1(Rest, <<Acc/binary, C>>);
+safe_filename1(<<_/utf8, Rest/binary>>, Acc) ->
+    safe_filename1(Rest, <<Acc/binary, $_>>).
 
 
-%% @doc Make sure that the filename is unique by appending a number on filename clashes
+%% @doc Make sure that the filename is unique by appending a number on filename
+%% clashes
 make_unique(Rootname, Extension, Context) ->
     File = iolist_to_binary([Rootname, Extension]),
     case m_media:is_unique_file(File, Context) of
@@ -202,10 +210,10 @@ is_archived(Filename, Context) ->
     lists:prefix(Archive, Fileabs).
 
 
-%% @doc Remove the path to the archive directory, return a filename relative to the archive directory
+%% @doc Remove the path to the archive directory, return a filename relative to
+%% the archive directory
 rel_archive(Filename, Context) ->
     Fileabs = z_convert:to_list(filename:absname(Filename)),
     Archive = z_convert:to_list(z_path:media_archive(Context)) ++ "/",
     true = lists:prefix(Archive, Fileabs),
     lists:nthtail(length(Archive), Fileabs).
-

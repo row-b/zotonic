@@ -37,11 +37,11 @@ ensure_configured(Context) ->
 %% @doc Return a {Priv, Pub} tuple listing the paths to the private
 %% and public key files
 cert_files(Context) ->
-	KeyDir = filename:join(z_path:site_dir(Context), "dkim"),
-	Sitename = z_convert:to_list(z_context:site(Context)),
+    KeyDir = filename:join(z_path:site_dir(Context), "dkim"),
+    Sitename = z_convert:to_list(z_context:site(Context)),
     {
-      filename:join(KeyDir, Sitename++".dkim.key"),
-      filename:join(KeyDir, Sitename++".dkim.pub")
+        filename:join(KeyDir, Sitename ++ ".dkim.key"),
+        filename:join(KeyDir, Sitename ++ ".dkim.pub")
     }.
 
 %% @doc Return the DNS domain that is used to place the TXT record in
@@ -75,14 +75,14 @@ mimemail_options(Context) ->
         false ->
             [];
         true ->
-            {{Y,M,D},T} = Now = calendar:universal_time(),
-            Expires = {{Y+1,M,D},T},
+            {{Y, M, D}, T} = Now = calendar:universal_time(),
+            Expires = {{Y + 1, M, D}, T},
             [{dkim, [{s, dkim_selector(Context)},
-                     {d, z_convert:to_binary(z_email:email_domain(Context))},
-                     {c, {simple, simple}},
-                     {t, Now},
-                     {x, Expires},
-                     {private_key, {pem_plain, get_priv_key(Context)}}]}]
+                {d, z_convert:to_binary(z_email:email_domain(Context))},
+                {c, {simple, simple}},
+                {t, Now},
+                {x, Expires},
+                {private_key, {pem_plain, get_priv_key(Context)}}]}]
     end.
 
 %% @doc Return the DKIM 'selector', which is the first part of the
@@ -99,8 +99,8 @@ is_configured(Context) ->
 %% prevent file access on every mail sent.
 get_priv_key(Context) ->
     z_depcache:memo(
-      fun() ->
-              {PrivKeyFile, _} = cert_files(Context),
-              {ok, Contents} = file:read_file(PrivKeyFile),
-              Contents
-      end, dkim_priv_key, ?DAY, Context).
+        fun() ->
+            {PrivKeyFile, _} = cert_files(Context),
+            {ok, Contents} = file:read_file(PrivKeyFile),
+            Contents
+        end, dkim_priv_key, ?DAY, Context).
